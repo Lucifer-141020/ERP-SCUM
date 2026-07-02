@@ -1,0 +1,226 @@
+{
+  "heroImages": [
+    "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=80",
+    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80"
+  ],
+  "serverInfo": {
+    "season": "赛季进行中 · 后端配置示例",
+    "description": "这段文字可以由后端统一修改，并会展示在首页主视觉区域。",
+    "no": "Erp 14-A",
+    "ip": "127.0.0.1:7777",
+    "group": "123456789",
+    "joinText": "加入玩家群",
+    "joinUrl": "https://qm.qq.com/q/mJgyxzi2YM",
+    "joinApplication": "申请加入时请备注你的 SCUM 游戏内名称。",
+    "joinQr": ""
+  },
+  "playItems": [
+    {
+      "key": "intro",
+      "icon": "home",
+      "title": "服务器介绍",
+      "subtitle": "后端可修改玩法标签、说明和图片",
+      "image": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
+      "text": "后端返回 playItems 数组后，前端会按数组内容重新生成玩法页。",
+      "points": [
+        "可新增玩法标签",
+        "可修改标题、图片和说明",
+        "可调整展示顺序"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "status": "pending",
+      "title": "示例服务器建议",
+      "user": "管理员",
+      "text": "后端可以返回玩家建议、投票数和处理状态。",
+      "agree": 0,
+      "disagree": 0,
+      "category": "优化",
+      "contact": "管理员",
+      "images": [],
+      "adminReply": "",
+      "rejectReason": ""
+    }
+  ],
+  "updates": [
+    {
+      "version": "每周活动",
+      "status": "已发布",
+      "title": "后端公告示例",
+      "text": "后端可以返回更新公告、活动安排和规则变更。"
+    }
+  ],
+  "playerSessions": [
+    {
+      "name": "示例玩家",
+      "visits": 1,
+      "lastSeen": "2026/6/20 00:00:00"
+    }
+  ],
+  "logs": [
+    {
+      "title": "后端日志示例",
+      "text": "这里可以展示后台记录。",
+      "tag": "日志",
+      "tagClass": "blue"
+    }
+  ],
+  "contentOverrides": [
+    {
+      "selector": ".brand strong",
+      "text": "Erp 14"
+    }
+  ],
+  "siteSections": {
+    "homeStats": {
+      "label": "首页数据栏",
+      "visible": true,
+      "order": 10
+    },
+    "homeFeatures": {
+      "label": "首页特色",
+      "visible": true,
+      "order": 20
+    },
+    "homeRules": {
+      "label": "服务器注意事项",
+      "visible": true,
+      "order": 30
+    },
+    "homeSuggestions": {
+      "label": "首页玩家建议",
+      "visible": true,
+      "order": 40
+    },
+    "buildingTemplates": {
+      "label": "建筑模板展示",
+      "visible": true,
+      "order": 45
+    },
+    "play": {
+      "label": "玩法页面",
+      "visible": true,
+      "order": 40
+    },
+    "requests": {
+      "label": "玩家建议页面",
+      "visible": true,
+      "order": 50
+    },
+    "events": {
+      "label": "每周活动页面",
+      "visible": true,
+      "order": 60
+    }
+  },
+  "homeStats": [
+    {
+      "icon": "users",
+      "color": "",
+      "label": "服务器容量",
+      "value": "80 人",
+      "note": "适合中大型社区"
+    },
+    {
+      "icon": "shield",
+      "color": "blue",
+      "label": "运营规则",
+      "value": "公平",
+      "note": "反作弊与管理员日志"
+    },
+    {
+      "icon": "box",
+      "color": "amber",
+      "label": "物资节奏",
+      "value": "适中",
+      "note": "避免过快毕业"
+    },
+    {
+      "icon": "flame",
+      "color": "red",
+      "label": "活动玩法",
+      "value": "每周",
+      "note": "PVE / PVP / 空投"
+    }
+  ],
+  "homeFeatures": {
+    "title": "服务器特色",
+    "description": "玩家打开网站时可以快速理解 Erp 14 的定位、规则和游玩目标。",
+    "items": [
+      {
+        "icon": "home",
+        "color": "",
+        "title": "基地成长线",
+        "text": "鼓励建家、囤物、维护和贸易。",
+        "tags": [
+          "建家保护",
+          "区域规则"
+        ]
+      },
+      {
+        "icon": "crosshair",
+        "color": "blue",
+        "title": "可控 PVP",
+        "text": "活动区保留对抗，普通区强调秩序。",
+        "tags": [
+          "活动战区",
+          "公平约束"
+        ]
+      }
+    ]
+  },
+  "serverRules": {
+    "title": "服务器注意事项",
+    "description": "入服前建议先看完这些规则，避免误会和违规。",
+    "image": "",
+    "items": [
+      {
+        "title": "尊重新手保护",
+        "text": "禁止恶意蹲守出生点或反复击杀新玩家。",
+        "level": "重要"
+      },
+      {
+        "title": "活动区规则优先",
+        "text": "活动期间按公告规则执行。",
+        "level": "活动"
+      },
+      {
+        "title": "禁止破坏体验",
+        "text": "外挂、漏洞利用、辱骂刷屏会被记录处理。",
+        "level": "底线"
+      }
+    ]
+  },
+  "buildingTemplates": [
+    {
+      "title": "新手安全屋",
+      "price": "8,000 金币",
+      "image": "https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80",
+      "description": "适合 1-2 人开荒使用，结构紧凑，维护成本低。",
+      "note": "备注：可按地形微调入口方向。",
+      "images": [
+        "https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "onShelf": true,
+      "stock": "不限",
+      "limit": "不限购",
+      "buyUrl": "#"
+    },
+    {
+      "title": "双人进阶基地",
+      "price": "18,000 金币",
+      "image": "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80",
+      "description": "适合双人长期居住，预留车辆停放区、工作台区和物资间。",
+      "note": "备注：建议配合中级维护包。",
+      "images": [
+        "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "onShelf": true,
+      "stock": "不限",
+      "limit": "不限购",
+      "buyUrl": "#"
+    }
+  ]
+}

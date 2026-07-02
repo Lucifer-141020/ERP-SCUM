@@ -1,0 +1,25 @@
+# Runtime data
+backend/data/
+backend/uploads/
+
+# Secrets and local environment
+.env
+*.env
+backend/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local backup and generated files
+备份/
+*.backup-*.html
+*.before-restore-*.html
+
+# Temporary verification/update scripts
+verify_*.js
+update_*.js
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

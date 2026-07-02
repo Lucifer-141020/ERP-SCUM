@@ -1,0 +1,5171 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Erp 14 - SCUM 服务器</title>
+  <style>
+    /*
+      ERP14 CSS maintenance map
+      1. Base tokens and reset: variables, body, buttons, common primitives.
+      2. Frontend views: hero, homepage sections, play cards, suggestions, templates.
+      3. Admin and forms: panel layout, upload controls, request management.
+      4. Modals and responsive rules: dialogs, image viewer, mobile navigation.
+      5. Override layer: wilderness theme, dark mode, and later feature fixes.
+
+      Note: Some selectors intentionally appear more than once. Later blocks are
+      theme/responsive/feature overrides and must stay after the base styles.
+    */
+    :root {
+      --bg: #eef3f1;
+      --surface: #ffffff;
+      --surface-soft: #f5f8f6;
+      --text: #16201c;
+      --normal: #415049;
+      --muted: #708079;
+      --line: #dce6e1;
+      --primary: #1f7a4d;
+      --primary-strong: #155f3b;
+      --primary-soft: #e7f3ec;
+      --blue: #315f9e;
+      --blue-soft: #eaf1fb;
+      --amber: #a66b1f;
+      --amber-soft: #fff4df;
+      --red: #c9485f;
+      --red-soft: #fff0f3;
+      --shadow: 0 16px 42px rgba(18, 35, 28, .10);
+      --radius: 8px;
+      color-scheme: light;
+      font-family: Inter, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0d1519;
+      --surface: #142126;
+      --surface-soft: #182a31;
+      --text: #eef8f7;
+      --normal: #c5d5d3;
+      --muted: #8ea4a4;
+      --line: #263b42;
+      --primary: #58c889;
+      --primary-strong: #87e6ad;
+      --primary-soft: rgba(88, 200, 137, .13);
+      --blue: #8cb6f1;
+      --blue-soft: rgba(140, 182, 241, .13);
+      --amber: #e7b869;
+      --amber-soft: rgba(244, 191, 104, .13);
+      --red: #ff8192;
+      --red-soft: rgba(255, 129, 146, .13);
+      --shadow: 0 18px 44px rgba(0, 0, 0, .28);
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.52), transparent 280px),
+        radial-gradient(circle at top left, rgba(31, 122, 77, .12), transparent 34rem),
+        radial-gradient(circle at top right, rgba(166, 107, 31, .10), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 28px;
+      border-bottom: 1px solid rgba(223, 232, 234, .82);
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      backdrop-filter: blur(18px);
+    }
+
+    [data-theme="dark"] .topbar {
+      border-bottom-color: rgba(38, 59, 66, .9);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      min-width: max-content;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius);
+      color: #fff;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      box-shadow: 0 12px 26px rgba(22, 140, 123, .22);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav button {
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--normal);
+    }
+
+    .nav button:hover,
+    .nav button.active {
+      color: var(--primary-strong);
+      background: var(--primary-soft);
+      border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: max-content;
+    }
+
+    .icon-btn,
+    .menu-btn {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--normal);
+    }
+
+    .menu-btn {
+      display: none;
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+
+    .main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 24px auto 40px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+      animation: enter .18s ease-out;
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      box-shadow: var(--shadow);
+    }
+
+    .pad {
+      padding: 20px;
+    }
+
+    .hero {
+      position: relative;
+      min-height: 420px;
+      overflow: hidden;
+      display: grid;
+      align-items: end;
+      padding: 38px;
+      background: #101b20;
+      color: #fff;
+    }
+
+    .hero-slides {
+      position: absolute;
+      inset: 0;
+    }
+
+    .hero-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      background-position: center;
+      background-size: cover;
+      transform: scale(1.04);
+      transition: opacity .7s ease, transform 4.8s ease;
+    }
+
+    .hero-slide.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .hero-dots {
+      position: absolute;
+      right: 26px;
+      bottom: 24px;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+    }
+
+    .hero-dots button {
+      width: 28px;
+      height: 6px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .35);
+    }
+
+    .hero-dots button.active {
+      background: #fff;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(115deg, rgba(5, 15, 18, .78), rgba(5, 15, 18, .24) 58%, rgba(5, 15, 18, .40)),
+        linear-gradient(180deg, transparent 45%, rgba(3, 10, 13, .68));
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+      border: 1px solid rgba(255, 255, 255, .24);
+      color: rgba(255, 255, 255, .92);
+      font-size: 13px;
+    }
+
+    .hero h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(38px, 6vw, 72px);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 720px;
+      margin: 0 0 22px;
+      color: rgba(255, 255, 255, .82);
+      font-size: 17px;
+      line-height: 1.75;
+    }
+
+    .hero-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 22px;
+    }
+
+    .hero-info span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+      border: 1px solid rgba(255, 255, 255, .22);
+      color: rgba(255, 255, 255, .9);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--normal);
+      text-decoration: none;
+    }
+
+    .btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn.ghost {
+      border-color: rgba(255, 255, 255, .28);
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+    }
+
+    .btn.soft {
+      border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+      background: var(--primary-soft);
+      color: var(--primary-strong);
+    }
+
+    .btn.warn {
+      border-color: color-mix(in srgb, var(--amber) 30%, transparent);
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 28px 0 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .section-head p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 16px;
+    }
+
+    .two {
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
+    }
+
+    .three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .stat {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 13px;
+      align-items: center;
+      min-height: 110px;
+    }
+
+    .icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius);
+      background: var(--primary-soft);
+      color: var(--primary-strong);
+    }
+
+    .icon.blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .icon.amber {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .icon.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .stat small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .stat em {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-style: normal;
+    }
+
+    .feature-card {
+      min-height: 210px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 22px 50px rgba(22, 37, 48, .11);
+    }
+
+    .feature-card h3,
+    .panel-title h3 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .feature-card p,
+    .panel-title p,
+    .muted {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .play-showcase {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .play-card {
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 240px 1fr;
+      min-height: 520px;
+    }
+
+    .play-card-media {
+      position: relative;
+      width: 100%;
+      border: 0;
+      background-position: center;
+      background-size: cover;
+      border-bottom: 1px solid var(--line);
+      cursor: zoom-in;
+    }
+
+    .play-media-wrap {
+      position: relative;
+      min-height: 240px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .play-media-wrap .play-card-media {
+      height: 100%;
+      min-height: 240px;
+      border-bottom: 0;
+    }
+
+    .play-card-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 45%, rgba(7, 16, 13, .52));
+    }
+
+    .play-card-body {
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      padding: 22px;
+    }
+
+    .play-card-body h3 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .play-card-body p {
+      margin: 0;
+      color: var(--normal);
+      line-height: 1.8;
+    }
+
+    .point-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .point-list li {
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--normal);
+      line-height: 1.55;
+    }
+
+    .image-tools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .image-preview {
+      min-height: 150px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft) center/cover;
+    }
+
+    .upload-btn {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-btn input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      color: var(--normal);
+      font-size: 12px;
+    }
+
+    .tag.green {
+      background: var(--primary-soft);
+      border-color: color-mix(in srgb, var(--primary) 25%, transparent);
+      color: var(--primary-strong);
+    }
+
+    .tag.blue {
+      background: var(--blue-soft);
+      border-color: color-mix(in srgb, var(--blue) 22%, transparent);
+      color: var(--blue);
+    }
+
+    .tag.danger {
+      background: var(--red-soft);
+      border-color: color-mix(in srgb, var(--red) 28%, transparent);
+      color: var(--red);
+    }
+
+    .tag.amber {
+      background: var(--amber-soft);
+      border-color: color-mix(in srgb, var(--amber) 26%, transparent);
+      color: var(--amber);
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    input,
+    select,
+    textarea {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 118px;
+      resize: vertical;
+      padding: 10px 12px;
+      line-height: 1.65;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
+    }
+
+    .search {
+      flex: 1 1 260px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tabs button {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--normal);
+    }
+
+    .tabs button.active {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .request-card,
+    .update-card,
+    .panel-row {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .request-head,
+    .update-head,
+    .panel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .request-card h3,
+    .update-card h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .request-card p,
+    .update-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .vote-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .vote-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mini-btn {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--normal);
+    }
+
+    .mini-btn.danger {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: color-mix(in srgb, var(--red) 28%, transparent);
+    }
+
+    .manage-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .update-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    #home.view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-block {
+      order: 0;
+    }
+
+    .section-block.is-hidden,
+    .view.section-disabled {
+      display: none !important;
+    }
+
+    .rule-layout {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(320px, .55fr);
+      gap: 18px;
+      padding: 18px;
+      align-items: stretch;
+    }
+
+    .rule-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .rule-item {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    .rule-item h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .rule-item p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .rule-art {
+      min-height: 260px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft) center/cover;
+    }
+
+    .toggle-row {
+      display: grid;
+      grid-template-columns: 1fr 96px 92px;
+      gap: 10px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .toggle-row input[type="number"] {
+      width: 100%;
+    }
+
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--normal);
+      cursor: pointer;
+    }
+
+    .switch input {
+      min-height: auto;
+      accent-color: var(--primary);
+    }
+
+    .login-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(320px, .55fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .login-art {
+      min-height: 460px;
+      display: grid;
+      align-content: end;
+      padding: 28px;
+      color: #fff;
+      background:
+        linear-gradient(145deg, rgba(13, 21, 25, .20), rgba(13, 21, 25, .74)),
+        url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1500&q=80") center/cover;
+    }
+
+    .login-art h2 {
+      font-size: 36px;
+      margin: 0 0 10px;
+    }
+
+    .login-art p {
+      max-width: 560px;
+      margin: 0;
+      color: rgba(255, 255, 255, .84);
+      line-height: 1.7;
+    }
+
+    .form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--normal);
+      font-size: 13px;
+    }
+
+    .panel-shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      min-height: 560px;
+      overflow: hidden;
+    }
+
+    .panel-side {
+      border-right: 1px solid var(--line);
+      background: var(--surface-soft);
+      padding: 16px;
+    }
+
+    .panel-side button {
+      width: 100%;
+      height: 38px;
+      margin-bottom: 8px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      background: transparent;
+      text-align: left;
+      color: var(--normal);
+      padding: 0 10px;
+    }
+
+    .panel-side button.active,
+    .panel-side button:hover {
+      background: var(--primary-soft);
+      border-color: color-mix(in srgb, var(--primary) 25%, transparent);
+      color: var(--primary-strong);
+    }
+
+    .panel-main {
+      padding: 18px;
+    }
+
+    .table {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      min-width: 680px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--surface-soft);
+      color: var(--normal);
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+
+
+    .compact-head {
+      margin-bottom: 12px;
+    }
+
+    .suggestion-ticker {
+      overflow: hidden;
+      padding: 12px;
+      border-radius: var(--radius);
+    }
+
+    .suggestion-track {
+      display: flex;
+      gap: 12px;
+      width: max-content;
+      animation: suggestionScroll 28s linear infinite;
+    }
+
+    .suggestion-ticker:hover .suggestion-track {
+      animation-play-state: paused;
+    }
+
+    .suggestion-pill {
+      min-width: 280px;
+      max-width: 360px;
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+    }
+
+    .suggestion-pill strong {
+      font-size: 14px;
+    }
+
+    .suggestion-pill p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @keyframes suggestionScroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .template-card {
+      display: grid;
+      grid-template-rows: 190px 1fr;
+      overflow: hidden;
+      min-height: 390px;
+    }
+
+    .template-media {
+      background-size: cover;
+      background-position: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .template-body {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      align-content: start;
+    }
+
+    .template-body h3 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .template-body p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .template-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .suggestion-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .request-card {
+      min-height: 250px;
+      grid-template-rows: auto 1fr auto auto;
+    }
+
+    .request-card p {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .request-submit-card {
+      max-width: 560px;
+    }
+
+    .request-submit-card textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    .submit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+
+
+    .modal-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      background: var(--surface-soft);
+      color: var(--text);
+    }
+
+    .required-label span {
+      color: var(--red);
+    }
+
+    .optional-label small {
+      margin-left: 8px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .request-submit-card {
+      width: min(560px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+      gap: 18px;
+      padding: 0;
+    }
+
+    .request-submit-card > * {
+      margin-left: 24px;
+      margin-right: 24px;
+    }
+
+    .request-submit-card .modal-topline {
+      margin: 0;
+      padding: 18px 24px 14px;
+    }
+
+    .request-submit-card .modal-actions {
+      margin: 8px 0 0;
+      padding: 16px 20px;
+      border-top: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface-soft) 64%, transparent);
+    }
+
+    .request-submit-card textarea {
+      min-height: 132px;
+    }
+
+    .form-grid.two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .upload-zone {
+      min-height: 116px;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      padding: 18px;
+      border: 1px dashed color-mix(in srgb, var(--muted) 35%, transparent);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--muted);
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .upload-icon {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .preview-strip,
+    .request-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .preview-thumb,
+    .request-thumb {
+      width: 64px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background-size: cover;
+      background-position: center;
+      background-color: var(--surface-soft);
+    }
+
+    .preview-thumb {
+      position: relative;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .preview-thumb button {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(5, 10, 12, .72);
+      color: #fff;
+      line-height: 1;
+    }
+
+    .request-card .tag-row {
+      align-content: start;
+    }
+
+    .request-status-select {
+      min-width: 132px;
+      height: 34px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .request-card.rejected {
+      border-left: 4px solid var(--red);
+    }
+
+    .admin-note {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .admin-note.reject {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .submit-hint {
+      margin-right: auto;
+      color: var(--red);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .panel-group {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .panel-group summary {
+      cursor: pointer;
+      padding: 10px 12px;
+      color: var(--text);
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .panel-group summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .panel-group summary::after {
+      content: "⌄";
+      float: right;
+      color: var(--muted);
+    }
+
+    .panel-group[open] summary::after {
+      content: "⌃";
+    }
+
+    .panel-group-body {
+      padding: 0 8px 8px;
+    }
+
+    .panel-group-body button {
+      margin-bottom: 6px;
+    }
+
+    .qr-preview {
+      min-height: 180px;
+      max-width: 240px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft) center/contain no-repeat;
+    }
+
+    .panel-save-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      backdrop-filter: blur(12px);
+    }
+
+    .save-state {
+      margin-left: auto;
+      align-self: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .save-state.dirty {
+      color: var(--amber);
+    }
+
+    .save-state.saved {
+      color: var(--primary-strong);
+    }
+
+    .save-state.failed {
+      color: var(--red);
+    }
+
+    .btn.needs-save {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 22%, transparent);
+    }
+
+    .request-admin-grid {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .request-admin-list {
+      display: grid;
+      gap: 12px;
+      max-height: 760px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .request-admin-card {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .request-admin-card.pending {
+      border-left-color: var(--amber);
+    }
+
+    .request-admin-card.planned {
+      border-left-color: var(--blue);
+    }
+
+    .request-admin-card.done {
+      border-left-color: var(--primary);
+    }
+
+    .request-admin-card.rejected {
+      border-left-color: var(--red);
+    }
+
+    .request-admin-main {
+      display: grid;
+      gap: 10px;
+    }
+
+    .request-admin-side {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .request-admin-side .card {
+      padding: 14px;
+    }
+
+    .request-admin-side strong {
+      display: block;
+      font-size: 22px;
+      margin-top: 4px;
+    }
+
+    .image-library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .library-item {
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .library-thumb {
+      aspect-ratio: 4 / 3;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft) center/cover no-repeat;
+    }
+
+    .image-manager {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 84%, var(--surface-soft));
+    }
+
+    .image-manager-head,
+    .image-storage-meter {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .image-manager-head strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .image-thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+      gap: 10px;
+    }
+
+    .managed-image-item {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .managed-image-thumb {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) - 2px);
+      background: var(--surface-soft) center/cover no-repeat;
+    }
+
+    .managed-image-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .image-empty {
+      min-height: 82px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      background: var(--surface);
+      text-align: center;
+      padding: 12px;
+    }
+
+    .image-address-fold {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+    }
+
+    .image-address-fold summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .image-address-fold summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .image-address-fold summary::before {
+      content: "+";
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--surface-soft);
+      color: var(--primary);
+    }
+
+    .image-address-fold[open] summary::before {
+      content: "-";
+    }
+
+    .image-address-fold textarea {
+      margin-top: 10px;
+      min-height: 92px;
+    }
+
+    .image-address-fold input {
+      margin-top: 10px;
+    }
+
+    .image-library-picker {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+    }
+
+    .image-library-picker summary {
+      cursor: pointer;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      list-style: none;
+    }
+
+    .image-library-picker summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .image-library-picker summary::before {
+      content: "+";
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--surface-soft);
+      color: var(--primary);
+    }
+
+    .image-library-picker[open] summary::before {
+      content: "-";
+    }
+
+    .image-library-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+      max-height: 280px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .image-library-choice-card {
+      display: grid;
+      gap: 6px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) - 2px);
+      background: var(--surface);
+    }
+
+    .image-library-choice-preview {
+      min-height: 76px;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) - 3px);
+      background: var(--surface-soft) center/cover no-repeat;
+    }
+
+    .image-library-choice-card .mini-btn {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .image-storage-meter {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .image-storage-bar {
+      flex: 1 1 180px;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-soft);
+    }
+
+    .image-storage-bar span {
+      display: block;
+      height: 100%;
+      width: var(--usage, 0%);
+      max-width: 100%;
+      background: var(--primary);
+    }
+
+    .image-storage-meter.warn .image-storage-bar span {
+      background: var(--amber);
+    }
+
+    .image-storage-meter.danger .image-storage-bar span {
+      background: var(--red);
+    }
+
+    .backup-tools {
+      display: grid;
+      gap: 14px;
+    }
+
+
+
+    .carousel-btn {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, .52);
+      border-radius: var(--radius);
+      background: rgba(7, 14, 16, .56);
+      color: #fff;
+      font-size: 32px;
+      line-height: 1;
+      pointer-events: auto;
+      box-shadow: 0 14px 30px rgba(0,0,0,.22);
+      backdrop-filter: blur(10px);
+    }
+
+    .carousel-btn:hover {
+      background: rgba(7, 14, 16, .72);
+      border-color: rgba(255, 255, 255, .72);
+    }
+
+    .template-media-wrap {
+      position: relative;
+      min-height: 190px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .template-media {
+      width: 100%;
+      height: 100%;
+      min-height: 190px;
+      display: block;
+      border: 0;
+      background-size: cover;
+      background-position: center;
+      cursor: zoom-in;
+    }
+
+    .template-controls {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: 50%;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      transform: translateY(-50%);
+    }
+
+    .template-controls .carousel-btn {
+      width: 32px;
+      height: 32px;
+      pointer-events: auto;
+      font-size: 20px;
+    }
+
+    .template-count {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(4, 10, 12, .55);
+      font-size: 12px;
+    }
+
+    .image-viewer {
+      z-index: 120;
+      background: rgba(4, 9, 11, .86);
+    }
+
+    .image-viewer-card {
+      position: relative;
+      width: min(980px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      display: grid;
+      gap: 10px;
+    }
+
+    .image-viewer-card img {
+      max-width: 100%;
+      max-height: calc(100vh - 96px);
+      border-radius: var(--radius);
+      object-fit: contain;
+      background: #000;
+    }
+
+    .image-viewer-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,.92);
+      color: #111;
+    }
+
+    .image-viewer-nav {
+      position: absolute;
+      top: 50%;
+      width: 48px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: var(--radius);
+      background: rgba(5, 10, 12, .58);
+      color: #fff;
+      font-size: 34px;
+      line-height: 1;
+      transform: translateY(-50%);
+      backdrop-filter: blur(10px);
+    }
+
+    .image-viewer-nav.prev {
+      left: 10px;
+    }
+
+    .image-viewer-nav.next {
+      right: 10px;
+    }
+
+    .image-viewer-nav:disabled {
+      display: none;
+    }
+
+    .image-viewer-count {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.54);
+      color: #fff;
+      font-size: 12px;
+      transform: translateX(-50%);
+    }
+
+    .image-viewer-title {
+      color: #fff;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .plus-mark {
+      width: 18px;
+      height: 18px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,.2);
+      font-weight: 800;
+      line-height: 1;
+      transform: translateY(-1px);
+    }
+
+    .field-error {
+      border-color: var(--red) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 12%, transparent) !important;
+    }
+
+    .template-editor-images {
+      min-height: 94px;
+    }
+
+    .drag-handle {
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--muted);
+      cursor: grab;
+    }
+
+    .toggle-row.dragging {
+      opacity: .55;
+    }
+
+    .panel-order-note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 50;
+      max-width: min(360px, calc(100vw - 36px));
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      color: var(--text);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: .18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: none;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(9, 17, 20, .72);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-backdrop.show {
+      display: grid;
+    }
+
+    .modal-card {
+      width: min(460px, 100%);
+      display: grid;
+      gap: 16px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .28);
+    }
+
+    .modal-card h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .modal-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    footer {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto 28px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        padding: 0 16px;
+      }
+
+      .menu-btn {
+        display: grid;
+      }
+
+      .nav {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        top: 74px;
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .nav.open {
+        display: flex;
+      }
+
+      .nav button {
+        width: 100%;
+        text-align: left;
+      }
+
+      .stats,
+      .four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .three,
+      .two,
+      .login-wrap,
+      .play-showcase,
+      .template-grid,
+      .suggestion-grid,
+      .form-grid.two {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .top-actions .btn {
+        display: none;
+      }
+
+      .hero {
+        min-height: 500px;
+        padding: 24px;
+      }
+
+      .hero-dots {
+        left: 24px;
+        right: auto;
+      }
+
+      .play-card {
+        min-height: auto;
+        grid-template-rows: 210px 1fr;
+      }
+
+      .stats,
+      .four {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .request-head,
+      .update-head,
+      .vote-row,
+      .panel-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .panel-shell,
+      .rule-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-side {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+    .hero {
+      min-height: 450px;
+      box-shadow: 0 24px 70px rgba(18, 35, 28, .18);
+      border-color: rgba(255,255,255,.7);
+    }
+
+    .hero::after {
+      background:
+        linear-gradient(112deg, rgba(5, 15, 18, .72), rgba(5, 15, 18, .18) 58%, rgba(5, 15, 18, .24)),
+        linear-gradient(180deg, rgba(3, 10, 13, .08), rgba(3, 10, 13, .58));
+    }
+
+    .hero h1 {
+      text-shadow: 0 12px 34px rgba(0,0,0,.42);
+    }
+
+    .hero p {
+      color: rgba(255,255,255,.88);
+      text-shadow: 0 8px 24px rgba(0,0,0,.34);
+    }
+
+    .hero-info span,
+    .eyebrow {
+      background: rgba(7, 14, 16, .34);
+      border-color: rgba(255,255,255,.30);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+    }
+
+    .stat {
+      border-color: color-mix(in srgb, var(--primary) 14%, var(--line));
+      box-shadow: 0 16px 36px rgba(18, 35, 28, .08);
+    }
+
+    .stat:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 44px rgba(18, 35, 28, .12);
+    }
+
+    .request-card {
+      position: relative;
+      min-height: 238px;
+      border-color: color-mix(in srgb, var(--line) 78%, var(--primary));
+      box-shadow: 0 14px 34px rgba(18, 35, 28, .07);
+    }
+
+    .request-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--amber);
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    .request-card.rejected::before {
+      background: var(--red);
+    }
+
+    .request-card h3 {
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .request-card p {
+      min-height: 44px;
+      color: var(--normal);
+    }
+
+    .vote-row {
+      margin-top: auto;
+      padding-top: 12px;
+    }
+
+    .vote-counts {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .vote-counts strong {
+      color: var(--primary-strong);
+      font-size: 15px;
+    }
+
+    .vote-counts strong.bad {
+      color: var(--red);
+    }
+
+    .mini-btn:disabled {
+      cursor: not-allowed;
+      opacity: .66;
+      color: var(--muted);
+    }
+
+    .tabs {
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 78%, var(--surface-soft));
+    }
+
+    .filters {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    @media (max-width: 680px) {
+      .hero {
+        min-height: 460px;
+      }
+
+      .request-card {
+        min-height: auto;
+      }
+
+      .vote-counts {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
+  
+    /*
+      ERP14 override layer
+      Keep this layer after the base styles. It contains the current visual theme
+      and targeted fixes added after the original page was built.
+    */
+
+    /* ERP14 wilderness outpost theme */
+    :root {
+      --bg: #e7e1d2;
+      --surface: #fffaf0;
+      --surface-soft: #f4eddc;
+      --text: #20251b;
+      --normal: #434733;
+      --muted: #73745f;
+      --line: #d2c39f;
+      --primary: #536f3e;
+      --primary-strong: #31472c;
+      --primary-soft: #e4ecd8;
+      --blue: #3d5d70;
+      --blue-soft: #e0eaec;
+      --amber: #9a6a2d;
+      --amber-soft: #f4e1bd;
+      --red: #a7433f;
+      --red-soft: #f3d8d2;
+      --shadow: 0 18px 42px rgba(54, 45, 25, .14);
+    }
+
+    body {
+      background:
+        linear-gradient(135deg, rgba(83, 111, 62, .08), transparent 34%),
+        linear-gradient(315deg, rgba(154, 106, 45, .11), transparent 38%),
+        repeating-linear-gradient(0deg, rgba(82, 74, 52, .045) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(90deg, rgba(82, 74, 52, .035) 0 1px, transparent 1px 34px),
+        var(--bg);
+      color: var(--text);
+    }
+
+    .topbar {
+      background: rgba(255, 250, 240, .92);
+      border-bottom: 1px solid rgba(103, 86, 50, .22);
+      box-shadow: 0 10px 28px rgba(54, 45, 25, .08);
+    }
+
+    .brand-mark {
+      background: linear-gradient(135deg, #31472c, #6f713a 58%, #9a6a2d);
+      box-shadow: 0 10px 24px rgba(49, 71, 44, .28);
+    }
+
+    .brand strong,
+    .section-title h2,
+    .modal-title h2,
+    .admin-card h3 {
+      color: var(--text);
+    }
+
+    .nav button,
+    .tab,
+    .filter-btn,
+    .status-tab,
+    .admin-tab,
+    .admin-subtab {
+      border-color: rgba(107, 91, 55, .24);
+    }
+
+    .nav button.active,
+    .nav button:hover,
+    .tab.active,
+    .filter-btn.active,
+    .status-tab.active,
+    .admin-tab.active,
+    .admin-subtab.active {
+      background: linear-gradient(180deg, #eef4e5, #e2ead4);
+      border-color: rgba(83, 111, 62, .38);
+      color: var(--primary-strong);
+    }
+
+    .card,
+    .admin-card,
+    .modal-card,
+    .template-card,
+    .request-card,
+    .update-card,
+    .play-card,
+    .rule-card,
+    .gallery-card {
+      background: linear-gradient(180deg, rgba(255, 250, 240, .98), rgba(248, 241, 226, .98));
+      border-color: rgba(107, 91, 55, .22);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      background: #20251b;
+      border: 1px solid rgba(210, 195, 159, .52);
+      outline: 1px solid rgba(255, 250, 240, .45);
+      box-shadow: 0 24px 58px rgba(54, 45, 25, .22);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, transparent 0 49%, rgba(255, 250, 240, .12) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 0 49%, rgba(255, 250, 240, .10) 50%, transparent 51%),
+        radial-gradient(circle at 18% 22%, rgba(244, 225, 189, .20), transparent 32%);
+      background-size: 86px 86px, 86px 86px, auto;
+      opacity: .32;
+      mix-blend-mode: screen;
+    }
+
+    .hero::after {
+      z-index: 1;
+      background: linear-gradient(90deg, rgba(19, 25, 17, .83), rgba(32, 37, 27, .50) 48%, rgba(32, 37, 27, .28));
+    }
+
+    .hero-inner {
+      z-index: 2;
+    }
+
+    .hero-dots {
+      z-index: 3;
+    }
+
+    .hero h1 {
+      font-size: 64px;
+      color: #fffaf0;
+      text-shadow: 0 5px 18px rgba(0, 0, 0, .36);
+    }
+
+    .eyebrow,
+    .hero-kicker,
+    .section-title span,
+    .brand span {
+      color: var(--muted);
+    }
+
+    .hero .eyebrow,
+    .hero p,
+    .hero-kicker {
+      color: rgba(255, 250, 240, .86);
+    }
+
+    .stat {
+      background: linear-gradient(180deg, rgba(255, 250, 240, .92), rgba(239, 230, 209, .92));
+      border: 1px solid rgba(210, 195, 159, .45);
+      border-top: 4px solid rgba(83, 111, 62, .78);
+    }
+
+    .stat strong,
+    .template-card h3,
+    .request-card h3,
+    .play-card h3,
+    .update-card h3 {
+      color: #20251b;
+    }
+
+    .primary-btn,
+    .btn.primary,
+    button.primary {
+      background: linear-gradient(180deg, #647f4c, #3f5a34);
+      box-shadow: 0 10px 24px rgba(63, 90, 52, .22);
+    }
+
+    .primary-btn:hover,
+    .btn.primary:hover,
+    button.primary:hover {
+      background: linear-gradient(180deg, #6f8b55, #465f38);
+    }
+
+    .secondary-btn,
+    .ghost-btn,
+    .btn.ghost {
+      background: rgba(255, 250, 240, .72);
+      border-color: rgba(107, 91, 55, .28);
+      color: var(--normal);
+    }
+
+    .template-card {
+      overflow: hidden;
+    }
+
+    .template-card::before,
+    .play-card::before,
+    .update-card::before {
+      background: linear-gradient(90deg, var(--primary), var(--amber));
+    }
+
+    .template-media-wrap,
+    .play-image,
+    .gallery-image,
+    .rule-image,
+    .request-image {
+      background: #ebe2cf;
+      border-color: rgba(107, 91, 55, .24);
+    }
+
+    .template-meta span,
+    .tag,
+    .category-tag,
+    .status-pill,
+    .request-card .tag-row span {
+      background: rgba(228, 236, 216, .9);
+      color: var(--primary-strong);
+      border-color: rgba(83, 111, 62, .22);
+    }
+
+    .request-card {
+      border-left: 4px solid rgba(83, 111, 62, .72);
+    }
+
+    .request-card.rejected {
+      border-left-color: var(--red);
+    }
+
+    .request-card::before {
+      background: linear-gradient(180deg, rgba(83, 111, 62, .76), rgba(154, 106, 45, .64));
+    }
+
+    .vote-count.good {
+      color: #2f7d45;
+    }
+
+    .vote-count.bad {
+      color: #b6403a;
+    }
+
+    .admin-shell {
+      background: rgba(255, 250, 240, .68);
+      border-color: rgba(107, 91, 55, .24);
+    }
+
+    .admin-sidebar,
+    .admin-main {
+      background: rgba(255, 250, 240, .78);
+    }
+
+    .form-field input,
+    .form-field textarea,
+    .form-field select,
+    input,
+    textarea,
+    select {
+      background-color: #fffdf6;
+      border-color: rgba(107, 91, 55, .28);
+    }
+
+    .form-field input:focus,
+    .form-field textarea:focus,
+    .form-field select:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(83, 111, 62, .62);
+      box-shadow: 0 0 0 3px rgba(83, 111, 62, .13);
+    }
+
+    @media (max-width: 680px) {
+      .hero h1 {
+        font-size: 42px;
+      }
+
+      .hero::after {
+        background: linear-gradient(180deg, rgba(19, 25, 17, .80), rgba(32, 37, 27, .54));
+      }
+    }
+
+  
+    /* ERP14 wilderness login contrast fix */
+    .login-art {
+      background:
+        linear-gradient(90deg, rgba(31, 37, 27, .72), rgba(49, 71, 44, .44)),
+        linear-gradient(180deg, rgba(255, 250, 240, .10), rgba(255, 250, 240, .04));
+      border-color: rgba(107, 91, 55, .30);
+    }
+
+    .login-art h2,
+    .login-art p {
+      color: #fffaf0;
+      text-shadow: 0 3px 12px rgba(0, 0, 0, .34);
+    }
+
+    .login-art .eyebrow {
+      background: rgba(255, 250, 240, .20);
+      border-color: rgba(255, 250, 240, .26);
+      color: #fffaf0;
+    }
+
+  
+    /* ERP14 image viewer centering fix */
+    .image-viewer-card {
+      width: fit-content;
+      max-width: calc(100vw - 36px);
+      justify-items: center;
+      align-items: center;
+    }
+
+    .image-viewer-card img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: min(980px, calc(100vw - 36px));
+      max-height: calc(100vh - 104px);
+      justify-self: center;
+    }
+
+    .image-viewer-nav {
+      top: calc(50% - 14px);
+      z-index: 2;
+    }
+
+    .image-viewer-nav.prev {
+      left: 12px;
+    }
+
+    .image-viewer-nav.next {
+      right: 12px;
+    }
+
+    .image-viewer-close {
+      z-index: 3;
+    }
+
+    .image-viewer-title {
+      width: 100%;
+      max-width: min(980px, calc(100vw - 36px));
+      min-height: 18px;
+    }
+
+    @media (max-width: 680px) {
+      .image-viewer {
+        padding: 12px;
+      }
+
+      .image-viewer-card {
+        max-width: calc(100vw - 24px);
+      }
+
+      .image-viewer-card img,
+      .image-viewer-title {
+        max-width: calc(100vw - 24px);
+      }
+
+      .image-viewer-nav {
+        width: 42px;
+        height: 50px;
+        top: calc(50% - 12px);
+        font-size: 30px;
+      }
+
+      .image-viewer-nav.prev {
+        left: 8px;
+      }
+
+      .image-viewer-nav.next {
+        right: 8px;
+      }
+    }
+
+  
+    /* ERP14 request page status simplification */
+    .request-status-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      padding: 6px;
+    }
+
+    .request-status-tabs button {
+      min-height: 42px;
+      height: auto;
+      justify-content: center;
+      border-radius: 7px;
+      font-weight: 800;
+    }
+
+    .request-status-tabs button:not(.active) {
+      background: transparent;
+      border-color: transparent;
+    }
+
+    .request-status-tabs button.active {
+      background: linear-gradient(180deg, #5d7a47, #3f5d36);
+      border-color: #3f5d36;
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(63, 93, 54, .22);
+    }
+
+    .request-filter-bar {
+      align-items: center;
+    }
+
+    .request-category-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .request-category-filters button {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--normal);
+    }
+
+    .request-category-filters button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .request-card.done {
+      border-left-color: var(--primary);
+    }
+
+    .request-card.done::before {
+      background: var(--primary);
+    }
+
+    .request-card.pending {
+      border-left-color: var(--amber);
+    }
+
+    .request-card.pending::before {
+      background: var(--amber);
+    }
+
+    .request-status-text {
+      flex: 0 0 auto;
+      font-size: 13px;
+    }
+
+    .request-status-text.done {
+      color: var(--primary);
+    }
+
+    .request-status-text.pending {
+      color: var(--amber);
+    }
+
+    .request-status-text.rejected {
+      color: var(--red);
+    }
+
+    .request-user {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .admin-note.done {
+      background: #d8f6df;
+      border: 1px solid rgba(47, 125, 69, .18);
+      color: #16833a;
+      font-weight: 650;
+    }
+
+    @media (max-width: 680px) {
+      .request-status-tabs {
+        grid-template-columns: 1fr;
+      }
+
+      .request-filter-bar {
+        display: grid;
+      }
+
+      .request-category-filters button {
+        flex: 1 1 calc(50% - 8px);
+      }
+    }
+
+  
+    /* ERP14 wilderness dark theme fix */
+    [data-theme="dark"] {
+      --bg: #111813;
+      --surface: #182118;
+      --surface-soft: #202b1f;
+      --text: #f2f4e9;
+      --normal: #d4dbc9;
+      --muted: #9fa98f;
+      --line: #3a4632;
+      --primary: #86ad63;
+      --primary-strong: #c3dfa1;
+      --primary-soft: rgba(134, 173, 99, .18);
+      --blue: #8fb8c9;
+      --blue-soft: rgba(143, 184, 201, .16);
+      --amber: #d2a453;
+      --amber-soft: rgba(210, 164, 83, .16);
+      --red: #df8078;
+      --red-soft: rgba(223, 128, 120, .16);
+      --shadow: 0 18px 46px rgba(0, 0, 0, .34);
+      color-scheme: dark;
+    }
+
+    [data-theme="dark"] body {
+      background:
+        linear-gradient(135deg, rgba(134, 173, 99, .08), transparent 34%),
+        linear-gradient(315deg, rgba(210, 164, 83, .08), transparent 38%),
+        repeating-linear-gradient(0deg, rgba(238, 228, 197, .035) 0 1px, transparent 1px 34px),
+        repeating-linear-gradient(90deg, rgba(238, 228, 197, .028) 0 1px, transparent 1px 34px),
+        var(--bg);
+    }
+
+    [data-theme="dark"] .topbar,
+    [data-theme="dark"] .admin-sidebar,
+    [data-theme="dark"] .admin-main {
+      background: rgba(24, 33, 24, .92);
+      border-color: rgba(184, 166, 119, .24);
+    }
+
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .admin-card,
+    [data-theme="dark"] .modal-card,
+    [data-theme="dark"] .template-card,
+    [data-theme="dark"] .request-card,
+    [data-theme="dark"] .update-card,
+    [data-theme="dark"] .play-card,
+    [data-theme="dark"] .rule-card,
+    [data-theme="dark"] .gallery-card {
+      background: linear-gradient(180deg, rgba(24, 33, 24, .98), rgba(29, 39, 27, .98));
+      border-color: rgba(184, 166, 119, .22);
+      box-shadow: var(--shadow);
+    }
+
+    [data-theme="dark"] .icon-btn,
+    [data-theme="dark"] .menu-btn,
+    [data-theme="dark"] .secondary-btn,
+    [data-theme="dark"] .ghost-btn,
+    [data-theme="dark"] .btn.ghost,
+    [data-theme="dark"] .tabs,
+    [data-theme="dark"] .filters,
+    [data-theme="dark"] input,
+    [data-theme="dark"] textarea,
+    [data-theme="dark"] select {
+      background-color: var(--surface);
+      border-color: var(--line);
+      color: var(--normal);
+    }
+
+    [data-theme="dark"] .hero {
+      border-color: rgba(184, 166, 119, .34);
+      outline-color: rgba(242, 244, 233, .14);
+    }
+
+    [data-theme="dark"] .stat {
+      background: linear-gradient(180deg, rgba(24, 33, 24, .94), rgba(32, 43, 31, .94));
+      border-color: rgba(184, 166, 119, .20);
+    }
+
+  
+    /* ERP14 collapsible admin request inputs */
+    .request-admin-folds {
+      display: grid;
+      gap: 8px;
+    }
+
+    .request-admin-fold {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 82%, var(--surface-soft));
+      overflow: hidden;
+    }
+
+    .request-admin-fold summary {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 12px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--normal);
+      font-weight: 750;
+      list-style: none;
+    }
+
+    .request-admin-fold summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .request-admin-fold summary::before {
+      content: "+";
+      width: 20px;
+      height: 20px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary-strong);
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+
+    .request-admin-fold[open] summary::before {
+      content: "-";
+    }
+
+    .request-admin-fold summary span {
+      flex: 1 1 auto;
+    }
+
+    .request-admin-fold summary strong {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .request-admin-fold textarea {
+      width: calc(100% - 20px);
+      min-height: 96px;
+      margin: 0 10px 10px;
+      resize: vertical;
+    }
+
+    @media (max-width: 680px) {
+      .request-admin-fold summary {
+        min-height: 36px;
+        padding: 0 10px;
+      }
+
+      .request-admin-fold textarea {
+        min-height: 90px;
+      }
+    }
+
+  
+    /* ERP14 admin fold hidden content fix */
+    .request-admin-fold:not([open]) textarea {
+      display: none;
+    }
+
+    .request-admin-fold[open] textarea {
+      display: block;
+    }
+
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <button class="menu-btn" id="menuBtn" title="菜单" aria-label="菜单"></button>
+    <a class="brand" href="#home" data-route="home">
+      <span class="brand-mark">14</span>
+      <span>
+        <strong>Erp 14</strong>
+        <span>SCUM 生存服务器</span>
+      </span>
+    </a>
+    <nav class="nav" id="nav">
+      <button class="active" data-route="home">首页</button>
+      <button data-route="play">玩法</button>
+      <button data-route="requests">玩家建议</button>
+      <button data-route="events">每周活动</button>
+      <button data-route="panel">管理</button>
+    </nav>
+    <div class="top-actions">
+      <a class="btn soft" id="joinGroupLink" href="https://qm.qq.com/q/mJgyxzi2YM" target="_blank" rel="noopener noreferrer">加入玩家群</a>
+      <button class="icon-btn" id="themeBtn" title="切换亮色/暗色模式" aria-label="切换亮色/暗色模式"></button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="view active" id="home">
+      <div class="hero card">
+        <div class="hero-slides" id="heroSlides"></div>
+        <div class="hero-inner">
+          <span class="eyebrow"><span data-icon="signal"></span> <span id="heroSeason">赛季进行中 · 长期稳定开放</span></span>
+          <h1 id="heroTitle">Erp 14</h1>
+          <p id="heroDescription">一个面向长期玩家的 SCUM 生存服务器。这里强调公平、合作、探索、基地建设和有节奏的活动，让新手能站稳，老玩家有目标。</p>
+          <div class="hero-info">
+            <span>服务器编号：<strong id="heroServerNo">Erp 14-A</strong></span>
+            <span>IP 地址：<strong id="heroServerIp">127.0.0.1:7777</strong></span>
+            <span>QQ群：<strong id="heroGroup">123456789</strong></span>
+          </div>
+        </div>
+        <div class="hero-dots" id="heroDots" aria-label="首页图片轮播"></div>
+      </div>
+
+      <div class="grid stats section-block" id="homeStatsSection" data-section="homeStats"></div>
+
+      <div class="section-block" id="homeFeaturesSection" data-section="homeFeatures">
+        <div class="section-head">
+          <div>
+            <h2 id="homeFeaturesTitle">服务器特色</h2>
+            <p id="homeFeaturesDescription">玩家打开网站时可以快速理解 Erp 14 的定位、规则和游玩目标。</p>
+          </div>
+        </div>
+        <div class="grid four" id="homeFeatureGrid"></div>
+      </div>
+
+      <div class="section-block" id="homeSuggestionsSection" data-section="homeSuggestions">
+        <div class="section-head compact-head">
+          <div>
+            <h2>玩家建议</h2>
+            <p>已完成的玩家建议会在这里滚动展示，方便新玩家看到服务器持续改进记录。</p>
+          </div>
+        </div>
+        <div class="suggestion-ticker card" id="homeSuggestionTicker"></div>
+      </div>
+
+      <div class="section-block" id="buildingTemplatesSection" data-section="buildingTemplates">
+        <div class="section-head">
+          <div>
+            <h2>服务器建筑模板展示</h2>
+            <p>展示可购买或可参考的基地建筑模板，包含图片、价格和备注。</p>
+          </div>
+        </div>
+        <div class="template-grid" id="buildingTemplateGrid"></div>
+      </div>
+
+      <div class="section-block" id="homeRulesSection" data-section="homeRules">
+        <div class="section-head">
+          <div>
+            <h2 id="homeRulesTitle">服务器注意事项</h2>
+            <p id="homeRulesDescription">入服前建议先看完这些规则，避免误会和违规。</p>
+          </div>
+        </div>
+        <div class="rule-layout card" id="homeRulesContent"></div>
+      </div>
+    </section>
+
+    <section class="view" id="play" data-section="play">
+      <div class="section-head">
+        <div>
+          <h2>玩法</h2>
+          <p>用功能标签展示服务器玩法。玩家点击“回收、称号、服务器介绍”等标签后，下方会显示对应说明、规则和图片。</p>
+        </div>
+      </div>
+      <div class="play-showcase" id="playShowcase"></div>
+    </section>
+
+    <section class="view" id="requests" data-section="requests">
+      <div class="section-head">
+        <div>
+          <h2>玩家建议</h2>
+          <p>玩家可以查看玩家建议的处理进度，已完成内容会同步滚动展示在首页。</p>
+        </div>
+        <button class="btn primary" id="openRequest"><span class="plus-mark">+</span> 提交建议</button>
+      </div>
+      <div class="tabs request-status-tabs" id="requestTabs">
+        <button class="active" data-status="pending">待讨论</button>
+        <button data-status="done">已完成</button>
+        <button data-status="rejected">已拒绝</button>
+      </div>
+      <div class="filters request-filter-bar">
+        <input class="search" id="requestSearch" placeholder="搜索建议标题、内容或提交人" />
+        <div class="request-category-filters" id="requestCategoryFilters">
+          <button class="active" data-category="">全部</button>
+          <button data-category="BUG">BUG</button>
+          <button data-category="new">新建议</button>
+          <button data-category="optimize">优化项</button>
+        </div>
+      </div>
+      <div class="suggestion-grid" id="requestGrid"></div>
+    </section>
+
+    <section class="view" id="events" data-section="events">
+      <div class="section-head">
+        <div>
+          <h2>每周活动</h2>
+          <p>把服务器更新、规则调整和每周活动公告集中展示，玩家能随时回看。</p>
+        </div>
+      </div>
+      <div class="update-list" id="updateList"></div>
+    </section>
+
+    <section class="view" id="panel">
+      <div class="section-head">
+        <div>
+          <h2>管理</h2>
+          <p>这是面向服主和管理员的管理后台。页面数据改为后端配置驱动，前端不再预留或提供远程控制功能。</p>
+        </div>
+      </div>
+      <div class="card panel-shell">
+        <aside class="panel-side">
+          <details class="panel-group" open>
+            <summary>入口</summary>
+            <div class="panel-group-body">
+              <button class="active" data-panel="adminLogin">管理员登录</button>
+              <button data-panel="overview">总览</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>前台内容</summary>
+            <div class="panel-group-body">
+              <button data-panel="visibilityManage">前台控制</button>
+              <button data-panel="settings">网站编辑</button>
+              <button data-panel="homeManage">首页管理</button>
+              <button data-panel="groupManage">玩家群设置</button>
+              <button data-panel="templateManage">建筑模板</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>玩法与互动</summary>
+            <div class="panel-group-body">
+              <button data-panel="requestManage">玩家建议</button>
+              <button data-panel="playManage">玩法管理</button>
+              <button data-panel="updateManage">每周活动</button>
+            </div>
+          </details>
+          <details class="panel-group">
+            <summary>系统</summary>
+            <div class="panel-group-body">
+              <button data-panel="players">玩家</button>
+              <button data-panel="imageLibrary">图片库</button>
+              <button data-panel="backupManage">备份恢复</button>
+              <button data-panel="logs">日志</button>
+              <button data-panel="backend">后端接入</button>
+            </div>
+          </details>
+        </aside>
+        <div class="panel-main" id="panelMain"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2026 Erp 14. SCUM server showcase. 静态展示版。</footer>
+  <div class="toast" id="toast">操作已提交</div>
+  <div class="modal-backdrop" id="requestModal" aria-modal="true" role="dialog">
+    <form class="modal-card request-submit-card" id="requestForm">
+      <div class="modal-topline">
+        <h2>提交玩家建议</h2>
+        <button class="modal-close" type="button" id="closeRequest" aria-label="关闭">×</button>
+      </div>
+      <label class="required-label">建议标题 <span>*</span><input id="requestTitle" placeholder="简短描述你的建议"></label>
+      <label class="required-label">建议内容 <span>*</span><textarea id="requestText" placeholder="详细说明你的建议..."></textarea></label>
+      <div class="form-grid two">
+        <label class="required-label">分类 <span>*</span><select id="requestCategory"><option value="BUG">BUG</option><option value="优化">优化</option><option value="新玩法/活动">新玩法/活动</option></select></label>
+        <label class="required-label">联系方式 <span>*</span><input id="requestContact" placeholder="QQ / 邮箱 / Discord 等"></label>
+      </div>
+      <label class="optional-label">附件图片 <small>最多5张，每张不超过5MB</small></label>
+      <label class="upload-zone" id="requestUploadZone">
+        <input id="requestImages" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+        <span class="upload-icon">⇧</span>
+        <strong>点击上传图片</strong>
+      </label>
+      <div class="preview-strip" id="requestImagePreview"></div>
+      <div class="submit-actions modal-actions">
+        <span class="submit-hint" id="requestSubmitHint"></span>
+        <button class="btn primary" type="submit">提交</button>
+        <button class="btn soft" type="button" id="cancelRequest">取消</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal-backdrop image-viewer" id="imageViewer" aria-modal="true" role="dialog">
+    <div class="image-viewer-card">
+      <button class="modal-close image-viewer-close" type="button" id="closeImageViewer" aria-label="关闭">×</button>
+      <button class="image-viewer-nav prev" type="button" id="imageViewerPrev" aria-label="上一张大图">‹</button>
+      <img id="imageViewerImg" alt="图片预览">
+      <button class="image-viewer-nav next" type="button" id="imageViewerNext" aria-label="下一张大图">›</button>
+      <div class="image-viewer-title" id="imageViewerTitle"></div>
+      <div class="image-viewer-count" id="imageViewerCount"></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="playerGate" aria-modal="true" role="dialog">
+    <form class="modal-card" id="playerGateForm">
+      <div>
+        <h2>填写游戏内名称</h2>
+        <p>进入 Erp 14 网页前需要登记你的 SCUM 游戏内名称，后台会显示已进入网页的玩家。</p>
+      </div>
+      <label>游戏内名称
+        <input id="playerGameName" required minlength="2" maxlength="24" autocomplete="nickname" placeholder="例如：Erp14_Player" />
+      </label>
+      <button class="btn primary" type="submit">进入网页</button>
+    </form>
+  </div>
+
+  <script>
+    const icons = {
+      menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+      sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+      moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z"/></svg>',
+      signal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20a5 5 0 0 0-5-5M12 20A10 10 0 0 0 2 10M17 20A15 15 0 0 0 2 5"/></svg>',
+      map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>',
+      calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+      message: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>',
+      users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/></svg>',
+      shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16.5 9.4-9-5.2"/><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M12 22V12"/></svg>',
+      flame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A4.5 4.5 0 1 0 16 11c0-4-4-6-4-9-3 2-5 5-5 9a5 5 0 0 0 1.5 3.5z"/></svg>',
+      home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></svg>',
+      crosshair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M22 12h-4M6 12H2M12 2v4M12 18v4"/></svg>',
+      package: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/><path d="M21 16V8l-9-5-9 5v8l9 5z"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+      lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+    };
+
+    let heroImages = [
+      'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=80',
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80',
+      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1800&q=80'
+    ];
+
+    let serverInfo = {
+      title: 'Erp 14',
+      season: '赛季进行中 · 长期稳定开放',
+      description: '一个面向长期玩家的 SCUM 生存服务器。这里强调公平、合作、探索、基地建设和有节奏的活动，让新手能站稳，老玩家有目标。',
+      no: 'Erp 14-A',
+      ip: '127.0.0.1:7777',
+      group: '123456789',
+      joinText: '加入玩家群',
+      joinUrl: 'https://qm.qq.com/q/mJgyxzi2YM',
+      joinQr: '',
+      joinApplication: '申请加入时请备注你的 SCUM 游戏内名称。'
+    };
+
+    let playItems = [
+      {
+        key: 'recycle',
+        icon: 'package',
+        title: '回收',
+        subtitle: '把无用物资转化为服务器经济资源',
+        image: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=1200&q=80'],
+        text: '回收系统用于处理玩家多余物资。玩家可以把指定物品带到回收点，换取金币、积分或活动兑换材料，让探索和拾荒都有明确收益。',
+        points: ['支持按物品类型设置不同回收价格', '可用于活动积分、商城币或服务器货币', '适合鼓励玩家清理仓库和参与探索']
+      },
+      {
+        key: 'title',
+        icon: 'shield',
+        title: '称号',
+        subtitle: '展示玩家身份、成就和社区贡献',
+        image: 'https://images.unsplash.com/photo-1520975682031-ae3f8d4f596b?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1520975682031-ae3f8d4f596b?auto=format&fit=crop&w=1200&q=80'],
+        text: '称号系统让玩家在社区里拥有可见身份。称号可以来自赛季排行、活动胜利、基地评选、贡献奖励或管理员授予。',
+        points: ['可区分新手、老玩家、VIP、活动冠军等身份', '适合做赛季荣誉和社区展示', '后续可接入玩家中心自动展示']
+      },
+      {
+        key: 'intro',
+        icon: 'home',
+        title: '服务器介绍',
+        subtitle: '让新玩家快速理解 Erp 14 的定位',
+        image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80'],
+        text: 'Erp 14 是偏长期经营的 SCUM 服务器，重点是稳定规则、基地成长、适中物资和有节奏的活动。这里适合喜欢经营、探索和团队协作的玩家。',
+        points: ['长期开放，规则稳定', '适合新手入门和老玩家经营', '玩法说明会持续在网站更新']
+      },
+      {
+        key: 'economy',
+        icon: 'box',
+        title: '经济系统',
+        subtitle: '围绕物资、交易和活动奖励建立循环',
+        image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80'],
+        text: '经济系统会把回收、任务、活动、交易区和玩家服务串起来，避免单纯刷物资导致目标感不足。',
+        points: ['交易区支持玩家之间交换资源', '活动奖励可进入经济循环', '未来可扩展商城、卡密和兑换系统']
+      },
+      {
+        key: 'events',
+        icon: 'flame',
+        title: '活动玩法',
+        subtitle: '周末空投、车队护送、基地评选',
+        image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80'],
+        text: '活动玩法负责给服务器制造节奏。管理员可以围绕地图点位、时间窗口和奖励池组织不同活动。',
+        points: ['周末空投争夺和限时 Boss 点', '车队护送、寻宝、基地评选', '每周活动公告会在每周活动页展示']
+      },
+      {
+        key: 'rules',
+        icon: 'crosshair',
+        title: 'PVP 与规则',
+        subtitle: '保留对抗，但减少无意义争议',
+        image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
+        images: ['https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80'],
+        text: 'PVP 会集中在明确区域和活动目标中展开。普通区域强调长期建设和社区秩序，避免无规则恶意破坏。',
+        points: ['活动区允许对抗，普通区遵守服务器规则', '突袭时间和限制明确公示', '管理员保留日志审查和处罚权']
+      }
+    ];
+
+    let requests = [
+      { status: 'pending', category: '新玩法/活动', contact: 'QQ 已登记', images: [], title: '增加周末车队护送活动', user: 'Lucifer', text: '希望每周固定一次护送活动，路线提前公布，劫车和护送双方都有奖励。', agree: 12, disagree: 1, adminReply: '', rejectReason: '' },
+      { status: 'planned', category: '优化', contact: 'QQ 已登记', images: [], title: '开放新手补给领取', user: '若云', text: '建议新玩家第一次进入服务器可以领取基础工具、食物和小背包。', agree: 19, disagree: 0, adminReply: '已进入计划，准备和新手礼包一起调整。', rejectReason: '' },
+      { status: 'done', category: '优化', contact: 'QQ 已登记', images: [], title: '优化交易区公告', user: '小颜', text: '交易规则已经整理到网站首页，后续会加入更详细的商品分类说明。', agree: 8, disagree: 0, adminReply: '已完成，后续继续补充商品分类。', rejectReason: '' },
+      { status: 'done', category: '优化', contact: 'QQ 已登记', images: [], title: '新增新手基地模板', user: '北风', text: '已加入适合新玩家购买的紧凑型基地模板，降低前期开荒建造成本。', agree: 15, disagree: 1, adminReply: '', rejectReason: '' },
+      { status: 'done', category: '优化', contact: 'Discord 已登记', images: [], title: '调整活动奖励说明', user: 'Mint', text: '活动奖励已经改为提前公示，玩家可以在活动前确认参与目标和领取规则。', agree: 11, disagree: 0, adminReply: '', rejectReason: '' },
+      { status: 'rejected', category: 'BUG', contact: 'QQ 已登记', images: [], title: '示例：无法复现的问题', user: '玩家示例', text: '这是一个已拒绝建议示例，用于展示管理员拒绝原因。', agree: 1, disagree: 0, adminReply: '', rejectReason: '信息不足，暂时无法复现，请补充截图或具体位置。' }
+    ];
+
+    let buildingTemplates = [
+      { title: '新手安全屋', price: '8,000 金币', image: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80'], description: '适合 1-2 人开荒使用，结构紧凑，维护成本低，包含基础储物和简易防御空间。', note: '备注：可按地形微调入口方向。', onShelf: true, stock: '不限', limit: '每人限购 1 套', buyUrl: '#' },
+      { title: '双人进阶基地', price: '18,000 金币', image: 'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=80'], description: '适合双人长期居住，预留车辆停放区、工作台区和独立物资间。', note: '备注：建议配合中级维护包。', onShelf: true, stock: '5 套', limit: '每队限购 1 套', buyUrl: '#' },
+      { title: '小队防御堡垒', price: '36,000 金币', image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80'], description: '适合 3-5 人小队，强调视野、分区和防御动线，适合活动据点或长期基地。', note: '备注：购买前需确认服务器建造区域规则。', onShelf: true, stock: '3 套', limit: '每队限购 1 套', buyUrl: '#' }
+    ];
+
+    let updates = [
+      { version: '活动 06.19', status: '本周活动', title: '周末空投争夺开启', text: '周六 20:30 开启空投争夺，活动区内允许 PVP，结束后统一发放参与奖励。' },
+      { version: '规则更新', status: '已生效', title: '新手保护范围调整', text: '新玩家保护期内禁止恶意蹲守出生点，违规行为将记录并处罚。' },
+      { version: '内容更新', status: '已发布', title: '交易区展示页整理', text: '网站新增交易区、基地经营和活动玩法说明，方便玩家入服前了解规则。' },
+      { version: '预告', status: '计划中', title: '基地评选活动', text: '准备开放基地投稿和投票，优秀作品会展示在网站首页。' }
+    ];
+
+    let siteSections = {
+      homeStats: { label: '首页数据栏', visible: true, order: 10 },
+      homeFeatures: { label: '首页特色', visible: true, order: 20 },
+      homeRules: { label: '服务器注意事项', visible: true, order: 30 },
+      play: { label: '玩法页面', visible: true, order: 40 },
+      homeSuggestions: { label: '首页玩家建议', visible: true, order: 40 },
+      buildingTemplates: { label: '建筑模板展示', visible: true, order: 45 },
+      requests: { label: '玩家建议页面', visible: true, order: 50 },
+      events: { label: '每周活动页面', visible: true, order: 60 }
+    };
+
+    let homeStats = [
+      { icon: 'users', color: '', label: '服务器容量', value: '80 人', note: '适合中大型社区' },
+      { icon: 'shield', color: 'blue', label: '运营规则', value: '公平', note: '反作弊与管理员日志' },
+      { icon: 'box', color: 'amber', label: '物资节奏', value: '适中', note: '避免过快毕业' },
+      { icon: 'flame', color: 'red', label: '活动玩法', value: '每周', note: 'PVE / PVP / 空投' }
+    ];
+
+    let homeFeatures = {
+      title: '服务器特色',
+      description: '玩家打开网站时可以快速理解 Erp 14 的定位、规则和游玩目标。',
+      items: [
+        { icon: 'home', color: '', title: '基地成长线', text: '鼓励建家、囤物、维护和贸易，基地不是一次性消耗品，而是玩家长期经营的核心。', tags: ['建家保护', '区域规则'] },
+        { icon: 'crosshair', color: 'blue', title: '可控 PVP', text: '保留刺激的对抗，但通过规则和活动分区降低恶意碾压，让战斗更有目标。', tags: ['活动战区', '公平约束'] },
+        { icon: 'package', color: 'amber', title: '经济与交易', text: '玩家可以围绕物资、载具、服务和活动奖励形成交易关系，服务器更像一个小社区。', tags: ['交易区', '活动奖励'] },
+        { icon: 'clock', color: 'red', title: '定期活动', text: '围绕空投、Boss 点、车队护送和寻宝设计节奏，让周末有明确目标。', tags: ['周末活动', '限时目标'] }
+      ]
+    };
+
+    let serverRules = {
+      title: '服务器注意事项',
+      description: '入服前建议先看完这些规则，避免误会和违规。',
+      image: '',
+      items: [
+        { title: '尊重新手保护', text: '新玩家保护期内禁止恶意蹲守出生点、反复击杀或诱导违规。', level: '重要' },
+        { title: '活动区规则优先', text: '活动区开放对抗时按每周活动公告执行，普通区域仍遵守日常服务器规则。', level: '活动' },
+        { title: '禁止恶意破坏体验', text: '外挂、漏洞利用、辱骂刷屏、恶意卡服等行为会被记录并处理。', level: '底线' }
+      ]
+    };
+
+    const API_BASE_URL = (window.ERP14_API_BASE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+    const BACKEND_CONFIG_URL = window.ERP14_CONFIG_URL || `${API_BASE_URL}/api/site-config`;
+    const ADMIN_TOKEN_KEY = 'erp14-admin-token';
+    let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+    let backendSaveTimer = null;
+    let contentOverrides = [];
+    let pendingRequestImages = [];
+    let imageViewerGallery = [];
+    let imageViewerIndex = 0;
+    let imageLibrary = [];
+    let requestVotes = {};
+    let adminRequestFilter = 'all';
+    let panelDirty = false;
+    let activeRequestStatus = '';
+    let activePlayerName = '';
+    let playerSessions = [];
+    let logs = [
+      { title: '13:58 每周活动公告更新', text: '周末空投活动发布时间变更', tag: '公告', tagClass: 'blue' },
+      { title: '12:10 网站数据准备完成', text: '后台管理已支持编辑玩法、活动和建议。', tag: '系统', tagClass: '' }
+    ];
+
+    let panelViews = {
+      adminLogin: () => `
+        <div class="login-wrap">
+          <div class="login-art card">
+            <div>
+              <span class="eyebrow"><span data-icon="lock"></span> 管理员入口</span>
+              <h2>管理员登录</h2>
+              <p>这里是服主和管理员进入管理功能的入口。登录后会把后台保存和图片上传同步到本地后端。</p>
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="section-head" style="margin-top:0">
+              <div>
+                <h2>管理员登录</h2>
+                <p>用于进入管理后台，不面向普通玩家。</p>
+              </div>
+            </div>
+            <form class="form" id="adminLoginForm">
+              <label>管理员账号<input id="adminUser" placeholder="请输入管理员账号"></label>
+              <label>管理员密码<input id="adminPass" type="password" placeholder="请输入管理员密码"></label>
+              <button class="btn primary" type="submit">进入管理</button>
+            </form>
+          </div>
+        </div>`,
+      overview: () => `
+        <div class="grid stats">
+          <article class="card pad stat"><span class="icon" data-icon="users"></span><div><small>登记玩家</small><strong>${playerSessions.length}</strong><em>进入网页后登记</em></div></article>
+          <article class="card pad stat"><span class="icon blue" data-icon="message"></span><div><small>玩家建议卡片</small><strong>${requests.length}</strong><em>后台可查看和删除</em></div></article>
+          <article class="card pad stat"><span class="icon amber" data-icon="map"></span><div><small>玩法项目</small><strong>${playItems.length}</strong><em>后台可编辑</em></div></article>
+          <article class="card pad stat"><span class="icon red" data-icon="calendar"></span><div><small>每周活动</small><strong>${updates.length}</strong><em>后台可编辑</em></div></article>
+          <article class="card pad stat"><span class="icon blue" data-icon="shield"></span><div><small>前台板块</small><strong>${Object.values(siteSections).filter(item => item.visible).length}</strong><em>可开关和排序</em></div></article>
+        </div>`,
+      players: () => `
+        <div class="panel-title"><h3>进入网页的玩家</h3><p>玩家首次进入网页必须填写游戏内名称，后台会记录名称、进入次数和最近进入时间。</p></div>
+        <div class="table"><table><thead><tr><th>游戏内名称</th><th>进入次数</th><th>最近进入</th><th>状态</th></tr></thead><tbody>
+        ${playerSessions.map(player => `<tr><td>${escapeHtml(player.name)}</td><td>${player.visits}</td><td>${player.lastSeen}</td><td><span class="tag green">已登记</span></td></tr>`).join('') || '<tr><td colspan="4">暂无玩家登记。</td></tr>'}
+        </tbody></table></div>`,
+      visibilityManage: () => `
+        <div class="panel-title"><h3>前台控制</h3><p>控制每个前台板块是否展示，并调整它们在首页或导航中的显示顺序。</p></div>
+        <p class="panel-order-note">拖动左侧把手调整首页与导航展示顺序，修改后点击保存才会生效。</p>
+        <div class="update-list" id="sectionOrderList">
+          ${Object.entries(siteSections).sort((a, b) => (Number(a[1].order) || 0) - (Number(b[1].order) || 0)).map(([key, section]) => `
+            <div class="toggle-row" draggable="true" data-section-row="${key}">
+              <span class="drag-handle" title="拖动排序">☰</span>
+              <div><strong>${escapeHtml(section.label)}</strong><p class="muted">模块 key：${key}</p></div>
+              <label class="switch"><input type="checkbox" data-section-visible="${key}" ${section.visible ? 'checked' : ''}>展示</label>
+              <label>排序<input type="number" data-section-order="${key}" value="${Number(section.order) || 0}"></label>
+            </div>`).join('')}
+        </div>
+        <div style="height:14px"></div>
+        <button class="btn primary" id="saveVisibility">保存前台控制</button>`,
+      homeManage: () => `
+        <div class="panel-title"><h3>首页管理</h3><p>编辑首页主视觉、数据卡、特色卡和服务器注意事项。</p></div>
+        <div class="card pad">
+          <div class="panel-title"><h3>首页主视觉</h3><p>这里控制首页第一屏主图上的大标题、状态文字和介绍。</p></div>
+          <div class="grid two">
+            <label>首页大标题<input id="homeHeroTitle" value="${escapeAttr(serverInfo.title || 'Erp 14')}"></label>
+            <label>顶部状态文字<input id="homeHeroSeason" value="${escapeAttr(serverInfo.season)}"></label>
+          </div>
+          <div style="height:14px"></div>
+          <label>首页介绍文字<textarea id="homeHeroDescription">${escapeHtml(serverInfo.description)}</textarea></label>
+          <div style="height:14px"></div>
+          <button class="btn primary" id="saveHomeHero">保存首页主视觉</button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="card pad">
+          <div class="panel-title"><h3>服务器注意事项</h3><p>展示在首页，适合放入服规、入服提醒和活动注意事项。</p></div>
+          <div class="grid two">
+            <label>标题<input id="editRulesTitle" value="${escapeAttr(serverRules.title)}"></label>
+            <label>说明<input id="editRulesDescription" value="${escapeAttr(serverRules.description)}"></label>
+          </div>
+          <div style="height:14px"></div>
+${renderManagedImageField({
+            title: '服规小插图',
+            note: '首页注意事项旁边展示，建议用清晰小图。',
+            images: serverRules.image ? [serverRules.image] : [],
+            target: 'rules',
+            fieldMarkup: `<input id="editRulesImage" value="${escapeAttr(serverRules.image)}">`,
+            uploadAction: 'upload-rules-image',
+            multiple: false,
+            single: true,
+            limit: 1
+          })}
+          <div style="height:14px"></div>
+          <label>注意事项，每行一条，格式：标题|内容|标签<textarea id="editRulesItems">${serverRules.items.map(item => `${item.title}|${item.text}|${item.level || ''}`).map(escapeHtml).join('\n')}</textarea></label>
+          <div style="height:14px"></div>
+          <button class="btn primary" id="saveHomeRules">保存注意事项</button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="card pad">
+          <div class="panel-title"><h3>首页特色</h3><p>编辑首页特色标题和卡片。卡片格式：图标|颜色|标题|说明|标签1,标签2。</p></div>
+          <div class="grid two">
+            <label>标题<input id="editFeaturesTitle" value="${escapeAttr(homeFeatures.title)}"></label>
+            <label>说明<input id="editFeaturesDescription" value="${escapeAttr(homeFeatures.description)}"></label>
+          </div>
+          <div style="height:14px"></div>
+          <label>特色卡<textarea id="editHomeFeatures">${homeFeatures.items.map(item => `${item.icon || ''}|${item.color || ''}|${item.title || ''}|${item.text || ''}|${(item.tags || []).join(',')}`).map(escapeHtml).join('\n')}</textarea></label>
+          <div style="height:14px"></div>
+          <button class="btn primary" id="saveHomeFeatures">保存首页特色</button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="card pad">
+          <div class="panel-title"><h3>首页数据卡</h3><p>每行一个，格式：图标|颜色|小标题|大数字|说明。颜色可填 blue、amber、red 或留空。</p></div>
+          <label>数据卡<textarea id="editHomeStats">${homeStats.map(item => `${item.icon || ''}|${item.color || ''}|${item.label || ''}|${item.value || ''}|${item.note || ''}`).map(escapeHtml).join('\n')}</textarea></label>
+          <div style="height:14px"></div>
+          <button class="btn primary" id="saveHomeStats">保存数据卡</button>
+        </div>`,
+      groupManage: () => `
+        <div class="panel-title"><h3>玩家群设置</h3><p>编辑首页右上角“加入玩家群”的按钮文字、链接和申请说明。</p></div>
+        <div class="card pad">
+          <div class="grid two">
+            <label>按钮文字<input id="groupJoinText" value="${escapeAttr(serverInfo.joinText || '加入玩家群')}"></label>
+            <label>加入链接<input id="groupJoinUrl" value="${escapeAttr(serverInfo.joinUrl || '')}"></label>
+          </div>
+          <div style="height:14px"></div>
+          <label>加入申请说明<textarea id="groupJoinApplication">${escapeHtml(serverInfo.joinApplication || '')}</textarea></label>
+          <div style="height:14px"></div>
+${renderManagedImageField({
+            title: '玩家群二维码',
+            note: '用于玩家扫码加入群，建议上传正方形二维码。',
+            images: serverInfo.joinQr ? [serverInfo.joinQr] : [],
+            target: 'group',
+            fieldMarkup: `<input id="groupJoinQr" value="${escapeAttr(serverInfo.joinQr || '')}">`,
+            uploadAction: 'upload-group-qr',
+            multiple: false,
+            single: true,
+            limit: 1
+          })}
+          <div style="height:14px"></div>
+          <button class="btn primary" id="saveGroupSettings">保存玩家群设置</button>
+        </div>`,
+      templateManage: () => `
+        <div class="panel-title"><h3>建筑模板管理</h3><p>编辑首页建筑模板的图片、介绍、价格、库存、限购和购买入口。保存模板后才展示到前端。</p></div>
+        <div class="update-list">
+          ${buildingTemplates.map((item, index) => renderTemplateEditor(item, index)).join('') || '<div class="card pad">暂无建筑模板。</div>'}
+        </div>
+        <div class="panel-save-bar"><button class="btn soft" data-action="add-template">新增建筑模板</button></div>`,
+      requestManage: () => renderRequestManagePanel(),
+      playManage: () => `
+        <div class="panel-title"><h3>玩法管理</h3><p>编辑玩法标签、标题、说明、图片和要点，保存后前台“玩法”页立即更新。</p></div>
+        <div class="update-list">
+          ${playItems.map((item, index) => renderPlayEditor(item, index)).join('')}
+        </div>`,
+      updateManage: () => `
+        <div class="panel-title"><h3>每周活动管理</h3><p>编辑每周活动公告和活动卡片，保存后前台“每周活动”页立即更新。</p></div>
+        <div class="panel-save-bar" style="position:static;margin-bottom:14px"><button class="btn soft" data-action="add-update">新增活动</button></div>
+        <div class="update-list">
+          ${updates.map((item, index) => renderUpdateEditor(item, index)).join('') || '<div class="card pad">暂无活动。</div>'}
+        </div>`,
+      imageLibrary: () => renderImageLibraryPanel(),
+      backupManage: () => renderBackupPanel(),
+      logs: () => `
+        <div class="update-list">
+          ${logs.map(log => `<div class="panel-row"><div><strong>${escapeHtml(log.title)}</strong><p class="muted">${escapeHtml(log.text)}</p></div><span class="tag ${log.tagClass || ''}">${escapeHtml(log.tag)}</span></div>`).join('')}
+        </div>`,
+      settings: () => `
+        <div class="panel-title"><h3>网站编辑</h3><p>后台可以修改首页核心文字、服务器信息和轮播图地址。</p></div>
+        <div class="grid two">
+          <label>首页大标题<input id="editHeroTitle" value="${escapeAttr(serverInfo.title || 'Erp 14')}"></label>
+          <label>顶部状态文字<input id="editSeason" value="${escapeAttr(serverInfo.season)}"></label>
+          <label>服务器编号<input id="editServerNo" value="${escapeAttr(serverInfo.no)}"></label>
+          <label>IP 地址<input id="editServerIp" value="${escapeAttr(serverInfo.ip)}"></label>
+          <label>QQ群<input id="editGroup" value="${escapeAttr(serverInfo.group)}"></label>
+          <label>加入按钮文字<input id="editJoinText" value="${escapeAttr(serverInfo.joinText || '加入玩家群')}"></label>
+          <label>加入链接<input id="editJoinUrl" value="${escapeAttr(serverInfo.joinUrl || '')}"></label>
+        </div>
+        <div style="height:14px"></div>
+        <label>加入申请说明<textarea id="editJoinApplication">${escapeHtml(serverInfo.joinApplication || '')}</textarea></label>
+        <div style="height:14px"></div>
+        <label>首页介绍文字<textarea id="editDescription">${escapeHtml(serverInfo.description)}</textarea></label>
+        <div style="height:14px"></div>
+${renderManagedImageField({
+          title: '首页轮播图',
+          note: '支持多张上传、删除和排序；保存后同步首页。',
+          images: heroImages,
+          target: 'hero',
+          fieldMarkup: `<textarea id="editHeroImages">${heroImages.map(escapeHtml).join('\n')}</textarea>`,
+          uploadAction: 'upload-hero-image',
+          multiple: true,
+          limit: 10
+        })}
+        <div style="height:14px"></div>
+        <button class="btn primary" id="saveServerInfo">保存并更新网站</button>`,
+      backend: () => `
+        <div class="panel-title"><h3>后端接入</h3><p>前端会优先读取 <strong>${BACKEND_CONFIG_URL}</strong>。真实后端可接管这些读写操作。</p><span class="save-state" id="panelSaveState">已保存</span></div>
+        <div class="update-list">
+          <div class="panel-row"><div><strong>后台可管理模块</strong><p class="muted">首页信息、轮播图、玩法、每周活动、玩家建议卡片、进入网页的玩家。</p></div><span class="tag green">完成</span></div>
+          <div class="panel-row"><div><strong>玩家建议接口</strong><p class="muted">GET 配置，POST/PUT 保存各模块，DELETE 删除玩家建议卡片。</p></div><span class="tag blue">API</span></div>
+          <div class="panel-row"><div><strong>当前后端地址</strong><p class="muted">后台登录后会同步保存到 <strong>${API_BASE_URL}</strong>，未登录时仍使用浏览器本地兜底。</p></div><span class="tag green">API</span></div>
+        </div>`
+    };
+
+    function renderHomeStats() {
+      const section = document.getElementById('homeStatsSection');
+      section.innerHTML = homeStats.map(item => `
+        <article class="card pad stat">
+          <span class="icon ${escapeAttr(item.color || '')}" data-icon="${escapeAttr(item.icon || 'shield')}"></span>
+          <div><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.value)}</strong><em>${escapeHtml(item.note)}</em></div>
+        </article>`).join('');
+      applyIcons(section);
+    }
+
+    function renderHomeFeatures() {
+      document.getElementById('homeFeaturesTitle').textContent = homeFeatures.title;
+      document.getElementById('homeFeaturesDescription').textContent = homeFeatures.description;
+      const grid = document.getElementById('homeFeatureGrid');
+      grid.innerHTML = homeFeatures.items.map(item => `
+        <article class="card pad feature-card">
+          <span class="icon ${escapeAttr(item.color || '')}" data-icon="${escapeAttr(item.icon || 'shield')}"></span>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.text)}</p>
+          <div class="tag-row">${(item.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>
+        </article>`).join('');
+      applyIcons(grid);
+    }
+
+
+    function renderHomeSuggestions() {
+      const ticker = document.getElementById('homeSuggestionTicker');
+      const done = requests.filter(item => item.status === 'done');
+      if (!done.length) {
+        ticker.innerHTML = '<div class="suggestion-pill"><strong>暂无已完成建议</strong><p>管理员处理后的建议会显示在这里。</p></div>';
+        return;
+      }
+      const cards = done.map(item => `
+        <article class="suggestion-pill">
+          <div class="tag-row"><span class="tag green">已完成</span><span class="tag">${escapeHtml(item.user)}</span></div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.text)}</p>
+        </article>`).join('');
+      ticker.innerHTML = `<div class="suggestion-track">${cards}${cards}</div>`;
+    }
+
+    function splitImageLines(value) {
+      return String(value || '').split(/\\n|\r?\n/).map(item => item.trim()).filter(Boolean);
+    }
+
+    function normalizeTemplateImages(item) {
+      const rawImages = Array.isArray(item.images) ? item.images : [];
+      const images = rawImages.flatMap(splitImageLines).filter(Boolean);
+      if (!images.length && item.image) images.push(...splitImageLines(item.image));
+      return images;
+    }
+
+    function normalizePlayImages(item) {
+      const images = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+      if (!images.length && item.image) images.push(item.image);
+      return images;
+    }
+
+    function renderBuildingTemplates() {
+      const grid = document.getElementById('buildingTemplateGrid');
+      const visibleTemplates = buildingTemplates.map((item, index) => ({ item, index })).filter(entry => entry.item.onShelf !== false);
+      grid.innerHTML = visibleTemplates.map(({ item, index }) => {
+        const images = normalizeTemplateImages(item);
+        const firstImage = images[0] || '';
+        return `
+        <article class="card template-card" data-template-card="${index}" data-image-index="0">
+          <div class="template-media-wrap">
+            <button class="template-media" type="button" data-open-image="${escapeAttr(firstImage)}" data-gallery="template-${index}" data-image-index="0" data-image-title="${escapeAttr(item.title)}" style="background-image:url('${escapeAttr(firstImage)}')"></button>
+            ${images.length > 1 ? `<div class="template-controls"><button class="carousel-btn" type="button" data-template-control="prev" data-index="${index}">‹</button><button class="carousel-btn" type="button" data-template-control="next" data-index="${index}">›</button></div><span class="template-count">1 / ${images.length}</span>` : ''}
+          </div>
+          <div class="template-body">
+            <div class="tag-row"><span class="tag amber">建筑模板</span><span class="tag green">${escapeHtml(item.price)}</span><span class="tag">库存：${escapeHtml(item.stock || '不限')}</span></div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.description)}</p>
+            <div class="template-meta"><span class="tag">${escapeHtml(item.limit || '不限购')}</span><span class="tag">${escapeHtml(item.note)}</span>${item.buyUrl && item.buyUrl !== '#' ? `<a class="tag green" href="${escapeAttr(item.buyUrl)}" target="_blank" rel="noopener noreferrer">购买入口</a>` : ''}</div>
+          </div>
+        </article>`;
+      }).join('') || '<div class="card pad">暂无建筑模板。</div>';
+    }
+
+    function renderServerRules() {
+      document.getElementById('homeRulesTitle').textContent = serverRules.title;
+      document.getElementById('homeRulesDescription').textContent = serverRules.description;
+      const content = document.getElementById('homeRulesContent');
+      content.innerHTML = `
+        <div class="rule-list">
+          ${serverRules.items.map(item => `
+            <article class="rule-item">
+              <div class="tag-row"><span class="tag amber">${escapeHtml(item.level || '注意')}</span></div>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.text)}</p>
+            </article>`).join('')}
+        </div>
+        <div class="rule-art" style="background-image:url('${escapeAttr(serverRules.image || heroImages[0] || '')}')"></div>`;
+    }
+
+    function applySectionControls() {
+      Object.entries(siteSections).forEach(([key, section]) => {
+        document.querySelectorAll(`[data-section="${key}"]`).forEach(el => {
+          el.classList.toggle('is-hidden', !section.visible);
+          el.classList.toggle('section-disabled', !section.visible);
+          el.style.order = Number(section.order) || 0;
+        });
+        document.querySelectorAll(`[data-route="${key}"]`).forEach(el => {
+          el.style.display = section.visible ? '' : 'none';
+        });
+      });
+      const active = document.querySelector('.view.active');
+      if (active?.dataset.section && siteSections[active.dataset.section] && !siteSections[active.dataset.section].visible) {
+        switchRoute('home');
+      }
+    }
+
+    function applyIcons(root = document) {
+      root.querySelectorAll('[data-icon]').forEach(el => {
+        const icon = icons[el.dataset.icon];
+        if (icon) el.innerHTML = icon;
+      });
+    }
+
+    function setTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem('erp14-theme', theme);
+      document.getElementById('themeBtn').innerHTML = theme === 'dark' ? icons.sun : icons.moon;
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      toast.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function escapeHtml(value = '') {
+      return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+    }
+
+    function escapeAttr(value = '') {
+      return escapeHtml(value);
+    }
+
+    function normalizeRequestStatus(status) {
+      return status === 'planned' ? 'pending' : (status || 'pending');
+    }
+
+    function requestLabel(status) {
+      return { pending: '待讨论', done: '已完成', rejected: '已拒绝' }[normalizeRequestStatus(status)] || '待讨论';
+    }
+
+    function normalizeRequestCategory(category = '') {
+      if (category === 'BUG' || category === 'bug') return 'BUG';
+      if (category.includes('优化')) return 'optimize';
+      return 'new';
+    }
+
+    function requestCategoryLabel(category = '') {
+      return { BUG: 'BUG', optimize: '优化项', new: '新建议' }[normalizeRequestCategory(category)] || '新建议';
+    }
+
+    function getRequestId(item, index = 0) {
+      if (!item.id) {
+        item.id = `req-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`;
+      }
+      return item.id;
+    }
+
+    function getCurrentVoterName() {
+      return (activePlayerName || localStorage.getItem('erp14-player-name') || '').trim();
+    }
+
+    function getPlayerVote(item, index) {
+      const voter = getCurrentVoterName();
+      if (!voter) return '';
+      const requestId = getRequestId(item, index);
+      return requestVotes[requestId]?.[voter] || '';
+    }
+
+    function nowText() {
+      return new Date().toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function addLog(title, text, tag = '后台', tagClass = 'blue') {
+      logs.unshift({ title, text, tag, tagClass });
+      logs = logs.slice(0, 30);
+      saveLocalData();
+    }
+
+    function getSiteDataSnapshot() {
+      return {
+        heroImages,
+        serverInfo,
+        playItems,
+        requests,
+        updates,
+        siteSections,
+        homeStats,
+        homeFeatures,
+        serverRules,
+        playerSessions,
+        buildingTemplates,
+        logs,
+        imageLibrary,
+        requestVotes
+      };
+    }
+
+    function saveLocalData() {
+      try {
+        localStorage.setItem('erp14-site-data', JSON.stringify(getSiteDataSnapshot()));
+        queueBackendSave();
+        markPanelSaved();
+      } catch (error) {
+        markPanelFailed('保存失败，可能是图片数据过大');
+        throw error;
+      }
+    }
+
+    function backendUrl(path) {
+      return `${API_BASE_URL}${path}`;
+    }
+
+    async function saveBackendData() {
+      if (!adminToken) return false;
+      const response = await fetch(backendUrl('/api/admin/site-config'), {
+        method: 'PUT',
+        headers: {
+          'authorization': `Bearer ${adminToken}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(getSiteDataSnapshot())
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          adminToken = '';
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+        }
+        throw new Error('SAVE_FAILED');
+      }
+      return true;
+    }
+
+    function queueBackendSave() {
+      if (!adminToken) return;
+      clearTimeout(backendSaveTimer);
+      backendSaveTimer = setTimeout(() => {
+        saveBackendData().catch(() => markPanelFailed('后端同步失败'));
+      }, 300);
+    }
+
+    function markPanelDirty() {
+      panelDirty = true;
+      const state = document.getElementById('panelSaveState');
+      if (state) {
+        state.textContent = '有未保存修改';
+        state.className = 'save-state dirty';
+      }
+      document.querySelectorAll('#panelMain .btn.primary').forEach(btn => btn.classList.add('needs-save'));
+    }
+
+    function markPanelSaved() {
+      panelDirty = false;
+      const state = document.getElementById('panelSaveState');
+      if (state) {
+        state.textContent = '已保存';
+        state.className = 'save-state saved';
+      }
+      document.querySelectorAll('#panelMain .btn.primary').forEach(btn => btn.classList.remove('needs-save'));
+    }
+
+    function markPanelFailed(message = '保存失败') {
+      const state = document.getElementById('panelSaveState');
+      if (state) {
+        state.textContent = message;
+        state.className = 'save-state failed';
+      }
+    }
+
+    function loadLocalData() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('erp14-site-data') || '{}');
+        heroImages = mergeArray(heroImages, saved.heroImages);
+        serverInfo = mergeObject(serverInfo, saved.serverInfo);
+        playItems = mergeArray(playItems, saved.playItems);
+        requests = mergeArray(requests, saved.requests);
+        updates = mergeArray(updates, saved.updates);
+        siteSections = mergeObject(siteSections, saved.siteSections);
+        normalizeSiteSections();
+        homeStats = mergeArray(homeStats, saved.homeStats);
+        homeFeatures = mergeObject(homeFeatures, saved.homeFeatures);
+        serverRules = mergeObject(serverRules, saved.serverRules);
+        playerSessions = mergeArray(playerSessions, saved.playerSessions);
+        buildingTemplates = mergeArray(buildingTemplates, saved.buildingTemplates);
+        logs = mergeArray(logs, saved.logs);
+        imageLibrary = mergeArray(imageLibrary, saved.imageLibrary);
+        requestVotes = saved.requestVotes && typeof saved.requestVotes === 'object' && !Array.isArray(saved.requestVotes) ? saved.requestVotes : requestVotes;
+      } catch (error) {
+        console.info('Local site data not loaded:', error.message);
+      }
+    }
+
+    function renderRequestManagePanel() {
+      const counts = {
+        all: requests.length,
+        pending: requests.filter(item => item.status === 'pending').length,
+        planned: requests.filter(item => item.status === 'planned').length,
+        done: requests.filter(item => item.status === 'done').length,
+        rejected: requests.filter(item => item.status === 'rejected').length
+      };
+      const filtered = requests
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => adminRequestFilter === 'all' || item.status === adminRequestFilter);
+      return `
+        <div class="panel-title"><h3>玩家建议管理</h3><p>按状态浏览建议，左侧看数量概览，右侧直接处理状态、回复和拒绝原因。</p><span class="save-state" id="panelSaveState">${panelDirty ? '有未保存修改' : '已保存'}</span></div>
+        <div class="request-admin-grid">
+          <aside class="request-admin-side">
+            <div class="card">
+              <label>筛选状态
+                <select id="adminRequestFilter">
+                  <option value="all" ${adminRequestFilter === 'all' ? 'selected' : ''}>全部</option>
+                  <option value="pending" ${adminRequestFilter === 'pending' ? 'selected' : ''}>待讨论</option>
+                  <option value="planned" ${adminRequestFilter === 'planned' ? 'selected' : ''}>已计划</option>
+                  <option value="done" ${adminRequestFilter === 'done' ? 'selected' : ''}>已完成</option>
+                  <option value="rejected" ${adminRequestFilter === 'rejected' ? 'selected' : ''}>已拒绝</option>
+                </select>
+              </label>
+            </div>
+            <div class="card"><span class="muted">全部建议</span><strong>${counts.all}</strong></div>
+            <div class="card"><span class="muted">待讨论</span><strong>${counts.pending}</strong></div>
+            <div class="card"><span class="muted">已计划</span><strong>${counts.planned}</strong></div>
+            <div class="card"><span class="muted">已完成</span><strong>${counts.done}</strong></div>
+            <div class="card"><span class="muted">已拒绝</span><strong>${counts.rejected}</strong></div>
+          </aside>
+          <div class="request-admin-list">
+            ${filtered.map(({ item, index }) => renderRequestAdminCard(item, index)).join('') || '<div class="card pad">暂无匹配建议。</div>'}
+          </div>
+        </div>
+        <div class="panel-save-bar"><button class="btn primary" id="saveRequestChanges">保存建议修改</button></div>`;
+    }
+
+    function renderRequestAdminCard(item, index) {
+      return `
+        <article class="request-admin-card ${escapeAttr(item.status || 'pending')}">
+          <div class="request-admin-main">
+            <div class="request-head"><h3>${escapeHtml(item.title)}</h3><span class="tag ${item.status === 'rejected' ? 'danger' : item.status === 'done' ? 'green' : item.status === 'planned' ? 'blue' : 'amber'}">${requestLabel(item.status)}</span></div>
+            <p>${escapeHtml(item.text)}</p>
+            <div class="tag-row"><span class="tag">提交人：${escapeHtml(item.user)}</span><span class="tag">分类：${escapeHtml(item.category || '优化')}</span><span class="tag">联系方式：${escapeHtml(item.contact || '未填写')}</span><span class="tag">图片 ${Array.isArray(item.images) ? item.images.length : 0}</span><span class="tag">同意 ${item.agree || 0} · 否定 ${item.disagree || 0}</span></div>
+            ${Array.isArray(item.images) && item.images.length ? `<div class="request-images">${item.images.slice(0, 5).map(src => `<button class="request-thumb" type="button" data-open-image="${escapeAttr(src)}" data-gallery="admin-request-${index}" data-image-title="${escapeAttr(item.title)}" style="background-image:url('${escapeAttr(src)}')"></button>`).join('')}</div>` : ''}
+            <div class="grid two">
+              <label>处理状态<select class="request-status-select" data-request-status="${index}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>待讨论</option><option value="planned" ${item.status === 'planned' ? 'selected' : ''}>已计划</option><option value="done" ${item.status === 'done' ? 'selected' : ''}>已完成</option><option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>已拒绝</option></select></label>
+              <label>快速操作<div class="manage-actions"><button class="mini-btn" data-action="view-request" data-index="${index}">查看</button><button class="mini-btn" data-action="move-request-up" data-index="${index}">上移</button><button class="mini-btn" data-action="move-request-down" data-index="${index}">下移</button><button class="mini-btn danger" data-action="delete-request" data-index="${index}">删除</button></div></label>
+            </div>
+            <div class="request-admin-folds">
+              <details class="request-admin-fold">
+                <summary><span>管理员回复</span><strong>${item.adminReply ? '已填写' : '点击填写'}</strong></summary>
+                <textarea data-request-reply="${index}" placeholder="可以写处理说明、计划时间或补充信息">${escapeHtml(item.adminReply || '')}</textarea>
+              </details>
+              <details class="request-admin-fold">
+                <summary><span>拒绝原因</span><strong>${item.rejectReason ? '已填写' : '点击填写'}</strong></summary>
+                <textarea data-request-reason="${index}" placeholder="状态选择已拒绝时建议填写">${escapeHtml(item.rejectReason || '')}</textarea>
+              </details>
+            </div>
+          </div>
+        </article>`;
+    }
+
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function estimateSiteStorageBytes() {
+      return JSON.stringify(getSiteDataSnapshot()).length * 2;
+    }
+
+    function renderImageStorageMeter() {
+      const bytes = estimateSiteStorageBytes();
+      const ratio = Math.min(100, Math.round(bytes / IMAGE_STORAGE_SOFT_LIMIT * 100));
+      const state = bytes >= IMAGE_STORAGE_HARD_LIMIT ? 'danger' : bytes >= IMAGE_STORAGE_WARN_LIMIT ? 'warn' : '';
+      const text = bytes >= IMAGE_STORAGE_HARD_LIMIT
+        ? '已接近本地存储上限，建议删除旧图或改用外链。'
+        : bytes >= IMAGE_STORAGE_WARN_LIMIT
+          ? '图片较多，正式部署建议改用服务器图片地址。'
+          : '当前体积正常，后期部署可切换成服务器图片地址。';
+      return `<div class="image-storage-meter ${state}" id="imageLibraryUsage">
+        <div><strong>配置占用估算：${formatBytes(bytes)}</strong><p class="muted">${text}</p></div>
+        <div class="image-storage-bar" style="--usage:${ratio}%"><span></span></div>
+      </div>`;
+    }
+
+    function renderManagedImageThumbs(images, target, ownerIndex = '', single = false) {
+      const clean = (images || []).filter(Boolean);
+      if (!clean.length) return '<div class="image-empty">暂无图片，点击上传添加。</div>';
+      const gallery = 'managed-' + target + '-' + ownerIndex;
+      return clean.map((src, imageIndex) => `
+        <article class="managed-image-item">
+          <button class="managed-image-thumb" type="button" data-open-image="${escapeAttr(src)}" data-gallery="${escapeAttr(gallery)}" data-image-index="${imageIndex}" data-image-title="后台图片预览" style="background-image:url('${escapeAttr(src)}')"></button>
+          <div class="managed-image-actions">
+            ${single ? '' : `<button class="mini-btn" data-action="move-managed-image" data-image-target="${target}" data-owner-index="${ownerIndex}" data-image-index="${imageIndex}" data-direction="-1">上移</button><button class="mini-btn" data-action="move-managed-image" data-image-target="${target}" data-owner-index="${ownerIndex}" data-image-index="${imageIndex}" data-direction="1">下移</button>`}
+            <button class="mini-btn danger" data-action="remove-managed-image" data-image-target="${target}" data-owner-index="${ownerIndex}" data-image-index="${imageIndex}">删除</button>
+          </div>
+        </article>`).join('');
+    }
+
+    function renderLibraryPicker(target, ownerIndex = '', single = false) {
+      const choices = imageLibrary.slice(0, IMAGE_LIBRARY_MAX_ITEMS).map((item, index) => `
+        <article class="image-library-choice-card">
+          <button class="image-library-choice-preview" type="button" data-open-image="${escapeAttr(item.src)}" data-gallery="library-picker-${target}-${ownerIndex}" data-image-index="${index}" data-image-title="${escapeAttr(item.name || '图片库图片')}" style="background-image:url('${escapeAttr(item.src)}')" aria-label="预览图片库图片"></button>
+          <button class="mini-btn" type="button" data-action="select-library-image" data-library-index="${index}" data-image-target="${target}" data-owner-index="${ownerIndex}" data-single="${single ? 'true' : 'false'}">选用这张</button>
+        </article>
+      `).join('');
+      return `
+        <details class="image-library-picker">
+          <summary>从图片库选择</summary>
+          ${choices ? `<div class="image-library-picker-grid">${choices}</div>` : '<p class="muted">图片库暂无图片，先到“图片库”上传。</p>'}
+        </details>`;
+    }
+
+    function renderManagedImageField({ title, note, images, target, ownerIndex = '', fieldMarkup, uploadAction, multiple = true, single = false, limit = 10 }) {
+      const clean = (images || []).filter(Boolean).slice(0, limit);
+      const indexAttr = ownerIndex === '' ? '' : ` data-index="${ownerIndex}"`;
+      return `
+        <div class="image-manager" data-image-manager data-image-target="${target}" data-owner-index="${ownerIndex}" data-single="${single ? 'true' : 'false'}" data-limit="${limit}">
+          <div class="image-manager-head">
+            <div><strong>${escapeHtml(title)}</strong><p class="muted">${escapeHtml(note || '')}</p></div>
+            <label class="btn soft upload-btn">${multiple ? '批量上传图片' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" ${multiple ? 'multiple' : ''} data-action="${uploadAction}"${indexAttr}></label>
+          </div>
+          <div class="image-thumb-grid" data-managed-thumbs>${renderManagedImageThumbs(clean, target, ownerIndex, single)}</div>
+          ${renderLibraryPicker(target, ownerIndex, single)}
+          <details class="image-address-fold">
+            <summary>高级：图片地址</summary>
+            ${fieldMarkup}
+          </details>
+        </div>`;
+    }
+
+    function getManagedImageField(target, ownerIndex = '') {
+      if (target === 'hero') return document.getElementById('editHeroImages');
+      if (target === 'rules') return document.getElementById('editRulesImage');
+      if (target === 'group') return document.getElementById('groupJoinQr');
+      if (target === 'play') return document.querySelector(`[data-play-field="images"][data-index="${ownerIndex}"]`);
+      if (target === 'template') return document.querySelector(`[data-template-field="images"][data-index="${ownerIndex}"]`);
+      return null;
+    }
+
+    function readManagedImages(target, ownerIndex = '') {
+      const field = getManagedImageField(target, ownerIndex);
+      if (!field) return [];
+      if (field.tagName === 'TEXTAREA') return field.value.split('\n').map(item => item.trim()).filter(Boolean);
+      return field.value.trim() ? [field.value.trim()] : [];
+    }
+
+    function setManagedImages(target, ownerIndex = '', images = []) {
+      const field = getManagedImageField(target, ownerIndex);
+      if (!field) return;
+      const clean = images.filter(Boolean);
+      if (field.tagName === 'TEXTAREA') field.value = clean.join('\n');
+      else field.value = clean[0] || '';
+      if (target === 'play') {
+        const main = document.querySelector(`[data-play-field="image"][data-index="${ownerIndex}"]`);
+        if (main) main.value = clean[0] || '';
+      }
+      markPanelDirty();
+      refreshManagedImageManager(target, ownerIndex);
+    }
+
+    function refreshManagedImageManager(target, ownerIndex = '') {
+      const manager = document.querySelector(`[data-image-manager][data-image-target="${target}"][data-owner-index="${ownerIndex}"]`);
+      if (!manager) return;
+      const images = readManagedImages(target, ownerIndex).slice(0, Number(manager.dataset.limit) || 10);
+      const thumbs = manager.querySelector('[data-managed-thumbs]');
+      if (thumbs) thumbs.innerHTML = renderManagedImageThumbs(images, target, ownerIndex, manager.dataset.single === 'true');
+    }
+
+    function removeManagedImage(target, ownerIndex, imageIndex) {
+      const images = readManagedImages(target, ownerIndex);
+      images.splice(imageIndex, 1);
+      setManagedImages(target, ownerIndex, images);
+      showToast('图片已从当前模块移除，点击保存后生效');
+    }
+
+    function moveManagedImage(target, ownerIndex, imageIndex, direction) {
+      const images = readManagedImages(target, ownerIndex);
+      if (!moveItem(images, imageIndex, direction)) return;
+      setManagedImages(target, ownerIndex, images);
+    }
+
+    function selectLibraryImage(target, ownerIndex, libraryIndex, single = false) {
+      const item = imageLibrary[libraryIndex];
+      if (!item?.src) {
+        showToast('图片库没有找到这张图片');
+        return;
+      }
+      const manager = document.querySelector(`[data-image-manager][data-image-target="${target}"][data-owner-index="${ownerIndex}"]`);
+      const limit = Number(manager?.dataset.limit) || 10;
+      const current = readManagedImages(target, ownerIndex);
+      const next = single ? [item.src] : [...current, item.src].slice(0, limit);
+      if (!single && current.length >= limit) {
+        showToast(`最多只能保留 ${limit} 张图片`);
+        return;
+      }
+      setManagedImages(target, ownerIndex, next);
+      showToast('已从图片库选入，点击保存后展示');
+    }
+
+    function appendManagedImages(target, ownerIndex, fileList, limit, toastLabel, maxSide = 1280) {
+      const current = readManagedImages(target, ownerIndex);
+      const room = Math.max(0, limit - current.length);
+      if (!room) {
+        showToast('最多只能保留 ' + limit + ' 张图片');
+        return;
+      }
+      if (adminToken) {
+        uploadImageFilesToBackend(fileList, room).then(images => {
+          if (!images.length) return;
+          setManagedImages(target, ownerIndex, [...current, ...images].slice(0, limit));
+          showToast('已上传 ' + images.length + ' 张' + toastLabel + '，点击保存后展示');
+        }).catch(() => {
+          showToast('上传到后端失败，请确认本地后端已启动');
+        });
+        return;
+      }
+      readImageFiles(fileList, room, images => {
+        if (!images.length) return;
+        setManagedImages(target, ownerIndex, [...current, ...images].slice(0, limit));
+        showToast('已添加 ' + images.length + ' 张' + toastLabel + '，点击保存后展示');
+      }, { maxSide });
+    }
+
+    function renderPlayEditor(item, index) {
+      return `
+        <div class="card pad">
+          <div class="panel-title"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.subtitle)}</p></div>
+          <div class="grid two">
+            <label>标题<input data-play-field="title" data-index="${index}" value="${escapeAttr(item.title)}"></label>
+            <label>图标<input data-play-field="icon" data-index="${index}" value="${escapeAttr(item.icon)}"></label>
+            <label>标签 key<input data-play-field="key" data-index="${index}" value="${escapeAttr(item.key)}"></label>
+            <input type="hidden" data-play-field="image" data-index="${index}" value="${escapeAttr(item.image)}">
+          </div>
+          <div style="height:14px"></div>
+${renderManagedImageField({
+            title: '玩法图片',
+            note: '前台玩法页会展示这些图片，最多 10 张。',
+            images: normalizePlayImages(item),
+            target: 'play',
+            ownerIndex: index,
+            fieldMarkup: `<textarea data-play-field="images" data-index="${index}">${normalizePlayImages(item).map(escapeHtml).join('\\n')}</textarea>`,
+            uploadAction: 'upload-play-image',
+            multiple: true,
+            limit: 10
+          })}
+          <div style="height:14px"></div>
+          <label>副标题<input data-play-field="subtitle" data-index="${index}" value="${escapeAttr(item.subtitle)}"></label>
+          <div style="height:14px"></div>
+          <label>说明<textarea data-play-field="text" data-index="${index}">${escapeHtml(item.text)}</textarea></label>
+          <div style="height:14px"></div>
+          <label>要点，每行一个<textarea data-play-field="points" data-index="${index}">${(item.points || []).map(escapeHtml).join('\n')}</textarea></label>
+          <div style="height:14px"></div>
+          <div class="manage-actions"><button class="mini-btn" data-action="move-play-up" data-index="${index}">上移</button><button class="mini-btn" data-action="move-play-down" data-index="${index}">下移</button><button class="btn primary" data-action="save-play" data-index="${index}">保存玩法</button><button class="btn soft" data-action="add-play">新增玩法</button><button class="mini-btn danger" data-action="delete-play" data-index="${index}">删除</button></div>
+        </div>`;
+    }
+
+    function renderTemplateEditor(item, index) {
+      const images = normalizeTemplateImages(item);
+      return `
+        <div class="card pad">
+          <div class="panel-title"><h3>${escapeHtml(item.title || '建筑模板')}</h3><p>${escapeHtml(item.price || '')}</p></div>
+          <div class="grid two">
+            <label>模板名称<input data-template-field="title" data-index="${index}" value="${escapeAttr(item.title)}"></label>
+            <label>购买价格<input data-template-field="price" data-index="${index}" value="${escapeAttr(item.price)}"></label>
+            <label>是否上架<select data-template-field="onShelf" data-index="${index}"><option value="true" ${item.onShelf !== false ? 'selected' : ''}>上架</option><option value="false" ${item.onShelf === false ? 'selected' : ''}>下架</option></select></label>
+            <label>库存<input data-template-field="stock" data-index="${index}" value="${escapeAttr(item.stock || '')}"></label>
+            <label>限购<input data-template-field="limit" data-index="${index}" value="${escapeAttr(item.limit || '')}"></label>
+            <label>购买入口<input data-template-field="buyUrl" data-index="${index}" value="${escapeAttr(item.buyUrl || '')}"></label>
+          </div>
+          <div style="height:14px"></div>
+${renderManagedImageField({
+            title: '建筑模板图片',
+            note: '建议至少 5 张，最多 10 张，可排序。',
+            images,
+            target: 'template',
+            ownerIndex: index,
+            fieldMarkup: `<textarea class="template-editor-images" data-template-field="images" data-index="${index}">${images.map(escapeHtml).join('\n')}</textarea>`,
+            uploadAction: 'upload-template-image',
+            multiple: true,
+            limit: 10
+          })}
+          <div style="height:14px"></div>
+          <label>模板介绍<textarea data-template-field="description" data-index="${index}">${escapeHtml(item.description)}</textarea></label>
+          <div style="height:14px"></div>
+          <label>备注<textarea data-template-field="note" data-index="${index}">${escapeHtml(item.note)}</textarea></label>
+          <div style="height:14px"></div>
+          <div class="manage-actions"><button class="mini-btn" data-action="move-template-up" data-index="${index}">上移</button><button class="mini-btn" data-action="move-template-down" data-index="${index}">下移</button><button class="btn primary" data-action="save-template" data-index="${index}">保存模板</button><button class="mini-btn danger" data-action="delete-template" data-index="${index}">删除</button></div>
+        </div>`;
+    }
+
+    function parseRows(value, mapper) {
+      return value.split('\n').map(row => row.trim()).filter(Boolean).map(row => mapper(row.split('|').map(part => part.trim())));
+    }
+
+    function renderUpdateEditor(item, index) {
+      return `
+        <div class="card pad">
+          <div class="grid two">
+            <label>版本/分类<input data-update-field="version" data-index="${index}" value="${escapeAttr(item.version)}"></label>
+            <label>状态<input data-update-field="status" data-index="${index}" value="${escapeAttr(item.status)}"></label>
+          </div>
+          <div style="height:14px"></div>
+          <label>标题<input data-update-field="title" data-index="${index}" value="${escapeAttr(item.title)}"></label>
+          <div style="height:14px"></div>
+          <label>内容<textarea data-update-field="text" data-index="${index}">${escapeHtml(item.text)}</textarea></label>
+          <div style="height:14px"></div>
+          <div class="manage-actions"><button class="mini-btn" data-action="move-update-up" data-index="${index}">上移</button><button class="mini-btn" data-action="move-update-down" data-index="${index}">下移</button><button class="btn primary" data-action="save-update" data-index="${index}">保存活动</button><button class="mini-btn danger" data-action="delete-update" data-index="${index}">删除</button></div>
+        </div>`;
+    }
+
+    const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+    const IMAGE_LIBRARY_MAX_ITEMS = 60;
+    const IMAGE_STORAGE_WARN_LIMIT = 6 * 1024 * 1024;
+    const IMAGE_STORAGE_SOFT_LIMIT = 8 * 1024 * 1024;
+    const IMAGE_STORAGE_HARD_LIMIT = 9 * 1024 * 1024;
+
+    function readImageFile(file, callback, options = {}) {
+      readImageFiles([file], 1, images => {
+        if (images[0]) callback(images[0]);
+      }, options);
+    }
+
+    function getAcceptedImageFiles(fileList, maxCount) {
+      const files = Array.from(fileList || []).slice(0, maxCount).filter(Boolean);
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const accepted = [];
+      files.forEach(file => {
+        if (!allowed.includes(file.type)) {
+          showToast('只支持 JPG、PNG、WEBP、GIF 图片');
+          return;
+        }
+        if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+          showToast('单张图片不能超过 5MB');
+          return;
+        }
+        accepted.push(file);
+      });
+      return accepted;
+    }
+
+    function readImageFiles(fileList, maxCount, callback, options = {}) {
+      const accepted = getAcceptedImageFiles(fileList, maxCount);
+      if (!accepted.length) {
+        showToast('请选择符合格式和大小的图片');
+        callback([]);
+        return;
+      }
+      const results = [];
+      let finished = 0;
+      accepted.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const maxSide = options.maxSide || 1280;
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            results.push(canvas.toDataURL('image/jpeg', 0.72));
+            finished += 1;
+            if (finished === accepted.length) callback(results);
+          };
+          img.onerror = () => {
+            results.push(reader.result);
+            finished += 1;
+            if (finished === accepted.length) callback(results);
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function uploadImageFilesToBackend(fileList, maxCount) {
+      if (!adminToken) return [];
+      const accepted = getAcceptedImageFiles(fileList, maxCount);
+      if (!accepted.length) {
+        showToast('请选择符合格式和大小的图片');
+        return [];
+      }
+      const urls = [];
+      for (const file of accepted) {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await fetch(backendUrl('/api/admin/upload'), {
+          method: 'POST',
+          headers: { 'authorization': `Bearer ${adminToken}` },
+          body: form
+        });
+        if (!response.ok) throw new Error('UPLOAD_FAILED');
+        const body = await response.json();
+        urls.push(new URL(body.url, API_BASE_URL).toString());
+      }
+      return urls;
+    }
+
+    function mergeObject(current, incoming) {
+      return incoming && typeof incoming === 'object' && !Array.isArray(incoming)
+        ? { ...current, ...incoming }
+        : current;
+    }
+
+    function mergeArray(current, incoming) {
+      return Array.isArray(incoming) ? incoming : current;
+    }
+
+    function normalizeSiteSections() {
+      delete siteSections.login;
+    }
+
+    function applyContentOverrides() {
+      contentOverrides.forEach(item => {
+        document.querySelectorAll(item.selector).forEach(el => {
+          if (typeof item.text === 'string') el.textContent = item.text;
+          if (typeof item.html === 'string') el.innerHTML = item.html;
+          if (item.attrs && typeof item.attrs === 'object') {
+            Object.entries(item.attrs).forEach(([key, value]) => el.setAttribute(key, value));
+          }
+        });
+      });
+      applyIcons();
+    }
+
+    function applyBackendConfig(config) {
+      heroImages = mergeArray(heroImages, config.heroImages);
+      serverInfo = mergeObject(serverInfo, config.serverInfo);
+      playItems = mergeArray(playItems, config.playItems);
+      requests = mergeArray(requests, config.requests);
+      updates = mergeArray(updates, config.updates);
+      siteSections = mergeObject(siteSections, config.siteSections);
+      normalizeSiteSections();
+      homeStats = mergeArray(homeStats, config.homeStats);
+      homeFeatures = mergeObject(homeFeatures, config.homeFeatures);
+      serverRules = mergeObject(serverRules, config.serverRules);
+      playerSessions = mergeArray(playerSessions, config.playerSessions);
+      buildingTemplates = mergeArray(buildingTemplates, config.buildingTemplates);
+      logs = mergeArray(logs, config.logs);
+      panelViews = mergeObject(panelViews, config.panelViews);
+      contentOverrides = mergeArray(contentOverrides, config.contentOverrides);
+      renderAll();
+    }
+
+    async function loadBackendConfig() {
+      try {
+        const response = await fetch(BACKEND_CONFIG_URL, { cache: 'no-store' });
+        if (!response.ok) return;
+        applyBackendConfig(await response.json());
+        showToast('已加载后端配置');
+      } catch (error) {
+        console.info('Backend config not loaded:', error.message);
+      }
+    }
+
+    async function handleAdminLogin(event) {
+      event.preventDefault();
+      const password = document.getElementById('adminPass').value;
+      try {
+        const response = await fetch(backendUrl('/api/admin/login'), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const body = await response.json();
+        if (!response.ok || !body.token) {
+          showToast(body.error || '管理员密码错误');
+          return;
+        }
+        adminToken = body.token;
+        localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+        await saveBackendData();
+        markPanelSaved();
+        showToast('管理员登录成功，已连接本地后端');
+        renderPanel('overview');
+      } catch (error) {
+        showToast('无法连接本地后端，请确认 3000 端口已启动');
+      }
+    }
+
+    function switchRoute(route) {
+      document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === route));
+      document.querySelectorAll('[data-route]').forEach(btn => btn.classList.toggle('active', btn.dataset.route === route));
+      document.getElementById('nav').classList.remove('open');
+      history.replaceState(null, '', '#' + route);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderHero() {
+      document.getElementById('heroTitle').textContent = serverInfo.title || 'Erp 14';
+      document.getElementById('heroSeason').textContent = serverInfo.season;
+      document.getElementById('heroDescription').textContent = serverInfo.description;
+      document.getElementById('heroServerNo').textContent = serverInfo.no;
+      document.getElementById('heroServerIp').textContent = serverInfo.ip;
+      document.getElementById('heroGroup').textContent = serverInfo.group;
+      const joinLink = document.getElementById('joinGroupLink');
+      joinLink.textContent = serverInfo.joinText || '加入玩家群';
+      joinLink.href = serverInfo.joinUrl || '#';
+      joinLink.title = serverInfo.joinApplication || '加入玩家群';
+    }
+
+    let currentHeroSlide = 0;
+
+    function renderHeroCarousel() {
+      const slides = document.getElementById('heroSlides');
+      const dots = document.getElementById('heroDots');
+      slides.innerHTML = heroImages.map((src, index) => `<div class="hero-slide ${index === 0 ? 'active' : ''}" style="background-image:url('${src}')"></div>`).join('');
+      dots.innerHTML = heroImages.map((_, index) => `<button class="${index === 0 ? 'active' : ''}" data-slide="${index}" aria-label="切换到第 ${index + 1} 张图片"></button>`).join('');
+      dots.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => showHeroSlide(Number(btn.dataset.slide))));
+    }
+
+    function showHeroSlide(index) {
+      currentHeroSlide = index;
+      document.querySelectorAll('.hero-slide').forEach((slide, i) => slide.classList.toggle('active', i === index));
+      document.querySelectorAll('#heroDots button').forEach((dot, i) => dot.classList.toggle('active', i === index));
+    }
+
+    function renderPlay() {
+      const showcase = document.getElementById('playShowcase');
+      if (!playItems.length) {
+        showcase.innerHTML = '<div class="card pad"><h3>暂无玩法内容</h3><p class="muted">等待后端配置。</p></div>';
+        return;
+      }
+      showcase.innerHTML = playItems.map((item, index) => {
+        const images = normalizePlayImages(item);
+        const firstImage = images[0] || '';
+        return `
+        <article class="card play-card" data-play-card="${index}" data-image-index="0">
+          <div class="play-media-wrap">
+            <button class="play-card-media" type="button" data-open-image="${escapeAttr(firstImage)}" data-gallery="play-${index}" data-image-index="0" data-image-title="${escapeAttr(item.title)}" style="background-image:url('${escapeAttr(firstImage)}')"></button>
+            ${images.length > 1 ? `<div class="template-controls"><button class="carousel-btn" type="button" data-play-control="prev" data-index="${index}">‹</button><button class="carousel-btn" type="button" data-play-control="next" data-index="${index}">›</button></div><span class="template-count">1 / ${images.length}</span>` : ''}
+          </div>
+          <div class="play-card-body">
+            <div class="tag-row"><span class="tag green"><span data-icon="${escapeAttr(item.icon || 'map')}"></span>${escapeHtml(item.subtitle)}</span></div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.text)}</p>
+            <ul class="point-list">
+              ${(item.points || []).map(point => `<li>${escapeHtml(point)}</li>`).join('')}
+            </ul>
+          </div>
+        </article>`;
+      }).join('');
+      applyIcons(showcase);
+    }
+
+    function renderRequests() {
+      const active = document.querySelector('#requestTabs button.active')?.dataset.status || 'pending';
+      const activeCategory = document.querySelector('#requestCategoryFilters button.active')?.dataset.category || '';
+      const q = document.getElementById('requestSearch').value.trim().toLowerCase();
+      const label = { pending: '待讨论', done: '已完成', rejected: '已拒绝' };
+      const cls = { pending: 'amber', done: 'green', rejected: 'danger' };
+      const html = requests.map((item, index) => ({ item, index })).filter(({ item }) => {
+        const frontStatus = normalizeRequestStatus(item.status);
+        const frontCategory = normalizeRequestCategory(item.category || '');
+        const haystack = (item.title + item.text + item.user + (item.category || '') + requestCategoryLabel(item.category || '') + (item.contact || '')).toLowerCase();
+        return frontStatus === active && (!activeCategory || frontCategory === activeCategory) && haystack.includes(q);
+      }).map(({ item, index }) => {
+        const frontStatus = normalizeRequestStatus(item.status);
+        const canVote = frontStatus === 'pending';
+        const playerVote = canVote ? getPlayerVote(item, index) : '';
+        const statusNote = frontStatus === 'done'
+          ? `<div class="admin-note done">完成说明：${escapeHtml(item.adminReply || '已完成处理')}</div>`
+          : frontStatus === 'rejected'
+            ? `<div class="admin-note reject">拒绝原因：${escapeHtml(item.rejectReason || item.adminReply || '管理员未填写拒绝原因')}</div>`
+            : (item.adminReply ? `<div class="admin-note">管理员回复：${escapeHtml(item.adminReply)}</div>` : '');
+        const voteActions = canVote
+          ? `<button class="mini-btn" data-action="vote-request" data-vote="agree" data-index="${index}" ${playerVote ? 'disabled' : ''}>${playerVote === 'agree' ? '已同意' : '同意'}</button>
+              <button class="mini-btn" data-action="vote-request" data-vote="disagree" data-index="${index}" ${playerVote ? 'disabled' : ''}>${playerVote === 'disagree' ? '已否定' : '否定'}</button>`
+          : '';
+        return `
+        <article class="request-card ${frontStatus}">
+          <div class="request-head"><div><span class="tag ${cls[frontStatus]}">${label[frontStatus]}</span><span class="request-user"> ${escapeHtml(item.user)}</span></div><strong class="request-status-text ${frontStatus}">${label[frontStatus]}</strong></div>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.text)}</p>
+          ${Array.isArray(item.images) && item.images.length ? `<div class="request-images">${item.images.slice(0, 5).map(src => `<button class="request-thumb" type="button" data-open-image="${escapeAttr(src)}" data-gallery="request-${escapeAttr(item.title)}" data-image-index="${item.images.indexOf(src)}" data-image-title="${escapeAttr(item.title)}" style="background-image:url('${escapeAttr(src)}')"></button>`).join('')}</div>` : ''}
+          <div class="tag-row"><span class="tag">提交人：${escapeHtml(item.user)}</span><span class="tag">${requestCategoryLabel(item.category || '')}</span><span class="tag">联系：${escapeHtml(item.contact || '未填写')}</span></div>
+          <div class="vote-row">
+            <span class="vote-counts" data-vote-count="${index}"><span>同意 <strong>${item.agree || 0}</strong></span><span>否定 <strong class="bad">${item.disagree || 0}</strong></span></span>
+            <div class="vote-actions">
+              ${voteActions}
+              <button class="mini-btn" data-toast="讨论窗口已预留">讨论</button>
+            </div>
+          </div>
+          ${statusNote}
+        </article>`;
+      }).join('');
+      document.getElementById('requestGrid').innerHTML = html || '<div class="card pad">没有匹配的玩家建议。</div>';
+    }
+
+    function renderUpdates() {
+      const html = updates.map(item => `
+        <article class="update-card">
+          <div class="update-head"><h3>${escapeHtml(item.title)}</h3><div class="tag-row"><span class="tag blue">${escapeHtml(item.version)}</span><span class="tag green">${escapeHtml(item.status)}</span></div></div>
+          <p>${escapeHtml(item.text)}</p>
+        </article>`).join('');
+      document.getElementById('updateList').innerHTML = html;
+    }
+
+    function updateRequestImagePreview() {
+      const preview = document.getElementById('requestImagePreview');
+      preview.innerHTML = pendingRequestImages.map((src, index) => `<span class="preview-thumb" style="background-image:url('${escapeAttr(src)}')"><button type="button" data-request-image-remove="${index}" aria-label="删除图片">×</button></span>`).join('');
+    }
+
+    function handleRequestImageFiles(files) {
+      readImageFiles(files, 5, images => {
+        pendingRequestImages = [...pendingRequestImages, ...images].slice(0, 5);
+        updateRequestImagePreview();
+        if (images.length) showToast(`已添加 ${images.length} 张建议图片`);
+      });
+    }
+
+    function openRequestModal() {
+      pendingRequestImages = [];
+      document.getElementById('requestSubmitHint').textContent = '';
+      document.querySelectorAll('#requestForm .field-error').forEach(el => el.classList.remove('field-error'));
+      updateRequestImagePreview();
+      document.getElementById('requestSubmitHint').textContent = '';
+      document.getElementById('requestModal').classList.add('show');
+      document.getElementById('requestTitle').focus();
+    }
+
+    function closeRequestModal() {
+      document.getElementById('requestModal').classList.remove('show');
+      document.getElementById('requestForm').reset();
+      pendingRequestImages = [];
+      updateRequestImagePreview();
+    }
+
+    function submitRequest(event) {
+      event.preventDefault();
+      const title = document.getElementById('requestTitle').value.trim();
+      const text = document.getElementById('requestText').value.trim();
+      const category = document.getElementById('requestCategory').value;
+      const contact = document.getElementById('requestContact').value.trim();
+      document.querySelectorAll('#requestForm .field-error').forEach(el => el.classList.remove('field-error'));
+      const missing = [];
+      const mark = (id, label) => {
+        const el = document.getElementById(id);
+        el.classList.add('field-error');
+        missing.push(label);
+      };
+      if (title.length < 2) mark('requestTitle', '建议标题');
+      if (text.length < 6) mark('requestText', '建议内容');
+      if (!category) mark('requestCategory', '分类');
+      if (contact.length < 2) mark('requestContact', '联系方式');
+      if (missing.length) {
+        const message = `请填写：${missing.join('、')}`;
+        document.getElementById('requestSubmitHint').textContent = message;
+        showToast(message);
+        return;
+      }
+      document.getElementById('requestSubmitHint').textContent = '';
+      const newRequest = {
+        status: 'pending',
+        category,
+        contact,
+        images: [...pendingRequestImages],
+        title,
+        user: activePlayerName || '未登记玩家',
+        text,
+        agree: 0,
+        disagree: 0,
+        adminReply: '',
+        rejectReason: ''
+      };
+      requests.unshift(newRequest);
+      try {
+        addLog('玩家提交建议', `${activePlayerName || '未登记玩家'} 提交了：${title}`, '建议', 'blue');
+        saveLocalData();
+      } catch (error) {
+        requests.shift();
+        document.getElementById('requestSubmitHint').textContent = '图片数据过大，建议删除部分图片或压缩后再提交';
+        showToast('图片数据过大，建议删除部分图片后再提交');
+        return;
+      }
+      closeRequestModal();
+      renderAll();
+      switchRoute('requests');
+      showToast('建议已提交到后台');
+    }
+
+    function saveVisibilitySettings() {
+      const rows = [...document.querySelectorAll('[data-section-row]')];
+      rows.forEach((row, index) => {
+        const key = row.dataset.sectionRow;
+        if (!siteSections[key]) return;
+        siteSections[key].visible = Boolean(row.querySelector(`[data-section-visible="${key}"]`)?.checked);
+        siteSections[key].order = (index + 1) * 10;
+      });
+      addLog('前台展示已调整', '后台更新了板块开关和拖拽排序。', '控制', 'blue');
+      saveLocalData();
+      renderAll();
+      showToast('前台控制已保存');
+    }
+
+    function saveHomeRules() {
+      serverRules.title = document.getElementById('editRulesTitle').value.trim() || serverRules.title;
+      serverRules.description = document.getElementById('editRulesDescription').value.trim() || serverRules.description;
+      serverRules.image = document.getElementById('editRulesImage').value.trim();
+      serverRules.items = parseRows(document.getElementById('editRulesItems').value, parts => ({
+        title: parts[0] || '注意事项',
+        text: parts[1] || '',
+        level: parts[2] || '注意'
+      }));
+      addLog('服务器注意事项已保存', '后台更新了首页服规内容。', '服规', 'amber');
+      saveLocalData();
+      renderAll();
+      showToast('服务器注意事项已保存');
+    }
+
+    function saveHomeHero() {
+      serverInfo.title = document.getElementById('homeHeroTitle').value.trim() || serverInfo.title || 'Erp 14';
+      serverInfo.season = document.getElementById('homeHeroSeason').value.trim() || serverInfo.season;
+      serverInfo.description = document.getElementById('homeHeroDescription').value.trim() || serverInfo.description;
+      addLog('首页主视觉已保存', '后台更新了首页大标题、状态文字和介绍。', '首页', 'green');
+      saveLocalData();
+      renderAll();
+      renderPanel('homeManage');
+      showToast('首页主视觉已保存');
+    }
+
+    function saveHomeFeatures() {
+      homeFeatures.title = document.getElementById('editFeaturesTitle').value.trim() || homeFeatures.title;
+      homeFeatures.description = document.getElementById('editFeaturesDescription').value.trim() || homeFeatures.description;
+      homeFeatures.items = parseRows(document.getElementById('editHomeFeatures').value, parts => ({
+        icon: parts[0] || 'shield',
+        color: parts[1] || '',
+        title: parts[2] || '特色',
+        text: parts[3] || '',
+        tags: (parts[4] || '').split(',').map(tag => tag.trim()).filter(Boolean)
+      }));
+      addLog('首页特色已保存', '后台更新了首页特色卡片。', '首页', 'green');
+      saveLocalData();
+      renderAll();
+      showToast('首页特色已保存');
+    }
+
+    function saveHomeStats() {
+      homeStats = parseRows(document.getElementById('editHomeStats').value, parts => ({
+        icon: parts[0] || 'shield',
+        color: parts[1] || '',
+        label: parts[2] || '数据',
+        value: parts[3] || '-',
+        note: parts[4] || ''
+      }));
+      addLog('首页数据卡已保存', '后台更新了首页数据展示。', '首页', 'green');
+      saveLocalData();
+      renderAll();
+      showToast('首页数据卡已保存');
+    }
+
+    function saveGroupSettings() {
+      serverInfo.joinText = document.getElementById('groupJoinText').value.trim() || '加入玩家群';
+      serverInfo.joinUrl = document.getElementById('groupJoinUrl').value.trim() || '#';
+      serverInfo.joinApplication = document.getElementById('groupJoinApplication').value.trim();
+      serverInfo.joinQr = document.getElementById('groupJoinQr').value.trim();
+      addLog('玩家群设置已保存', '后台更新了加入玩家群按钮、二维码和申请说明。', '玩家群', 'green');
+      saveLocalData();
+      renderAll();
+      renderPanel('groupManage');
+      showToast('玩家群设置已保存');
+    }
+
+    function saveServerSettings() {
+      serverInfo.title = document.getElementById('editHeroTitle').value.trim() || serverInfo.title || 'Erp 14';
+      serverInfo.season = document.getElementById('editSeason').value.trim() || serverInfo.season;
+      serverInfo.no = document.getElementById('editServerNo').value.trim() || serverInfo.no;
+      serverInfo.ip = document.getElementById('editServerIp').value.trim() || serverInfo.ip;
+      serverInfo.group = document.getElementById('editGroup').value.trim() || serverInfo.group;
+      serverInfo.joinText = document.getElementById('editJoinText').value.trim() || '加入玩家群';
+      serverInfo.joinUrl = document.getElementById('editJoinUrl').value.trim() || '#';
+      serverInfo.joinApplication = document.getElementById('editJoinApplication').value.trim();
+      serverInfo.joinQr = serverInfo.joinQr || '';
+      serverInfo.description = document.getElementById('editDescription').value.trim() || serverInfo.description;
+      heroImages = document.getElementById('editHeroImages').value.split('\n').map(item => item.trim()).filter(Boolean);
+      addLog('网站信息已保存', '后台更新了首页文字和轮播图。');
+      saveLocalData();
+      renderAll();
+      showToast('网站信息已更新');
+    }
+
+    function saveBuildingTemplate(index) {
+      const read = field => document.querySelector(`[data-template-field="${field}"][data-index="${index}"]`).value.trim();
+      const images = splitImageLines(read('images'));
+      buildingTemplates[index] = {
+        title: read('title') || '未命名模板',
+        price: read('price') || '价格待定',
+        image: images[0] || '',
+        images,
+        description: read('description'),
+        note: read('note'),
+        onShelf: read('onShelf') !== 'false',
+        stock: read('stock') || '不限',
+        limit: read('limit') || '不限购',
+        buyUrl: read('buyUrl') || '#'
+      };
+      addLog('建筑模板已保存', `后台更新了建筑模板：${buildingTemplates[index].title}`, '建筑', 'amber');
+      saveLocalData();
+      renderAll();
+      renderPanel('templateManage');
+      showToast('建筑模板已保存');
+    }
+
+    function renderImageLibraryPanel() {
+      return `
+        <div class="panel-title"><h3>图片库</h3><p>统一保存常用图片。当前静态版会把图片存到浏览器本地，正式部署建议改用服务器图片地址。</p><span class="save-state" id="panelSaveState">${panelDirty ? '有未保存修改' : '已保存'}</span></div>
+        ${renderImageStorageMeter()}
+        <div class="panel-save-bar" style="position:static;margin:14px 0">
+          <label class="btn soft upload-btn">一键上传多张图片<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-action="upload-library-image"></label>
+          <span class="muted">图片库最多建议 ${IMAGE_LIBRARY_MAX_ITEMS} 张，单张原图不超过 5MB。</span>
+        </div>
+        <div class="image-library-grid">
+          ${imageLibrary.map((item, index) => `
+            <article class="library-item">
+              <button class="library-thumb" type="button" data-open-image="${escapeAttr(item.src)}" data-gallery="library" data-image-index="${index}" data-image-title="${escapeAttr(item.name || '图片库图片')}" style="background-image:url('${escapeAttr(item.src)}')"></button>
+              <strong>${escapeHtml(item.name || '图片')}</strong>
+              <p class="muted">${escapeHtml(item.createdAt || '')}</p>
+              <div class="manage-actions"><button class="mini-btn" data-action="copy-library-image" data-index="${index}">复制地址</button><button class="mini-btn danger" data-action="delete-library-image" data-index="${index}">删除</button></div>
+            </article>`).join('') || '<div class="card pad">暂无图片。点击上方上传到图片库。</div>'}
+        </div>`;
+    }
+
+    function renderBackupPanel() {
+      return `
+        <div class="panel-title"><h3>备份恢复</h3><p>导出当前网站配置，或导入之前备份。恢复默认会清空当前本地修改。</p><span class="save-state" id="panelSaveState">${panelDirty ? '有未保存修改' : '已保存'}</span></div>
+        <div class="backup-tools">
+          <div class="card pad">
+            <div class="panel-title"><h3>导出配置</h3><p>生成 JSON 备份文件，建议每次大改前导出一次。</p></div>
+            <button class="btn primary" id="exportSiteData">导出当前配置</button>
+          </div>
+          <div class="card pad">
+            <div class="panel-title"><h3>导入配置</h3><p>选择备份文件或把 JSON 粘贴到文本框，然后点击导入。</p></div>
+            <label>备份 JSON<textarea id="importSiteDataText" placeholder="把导出的 JSON 粘贴到这里"></textarea></label>
+            <div style="height:12px"></div>
+            <label class="btn soft upload-btn">选择备份文件<input type="file" accept="application/json,.json" data-action="import-site-file"></label>
+            <button class="btn primary" id="importSiteData">导入备份</button>
+          </div>
+          <div class="card pad">
+            <div class="panel-title"><h3>恢复默认数据</h3><p>恢复到本文件内置的默认内容，当前本地修改会被覆盖。</p></div>
+            <button class="btn warn" id="resetSiteData">一键恢复默认数据</button>
+          </div>
+        </div>`;
+    }
+
+    function saveRequestChanges() {
+      document.querySelectorAll('[data-request-status]').forEach(select => {
+        const index = Number(select.dataset.requestStatus);
+        if (requests[index]) requests[index].status = select.value;
+      });
+      document.querySelectorAll('[data-request-reply]').forEach(input => {
+        const index = Number(input.dataset.requestReply);
+        if (requests[index]) requests[index].adminReply = input.value.trim();
+      });
+      document.querySelectorAll('[data-request-reason]').forEach(input => {
+        const index = Number(input.dataset.requestReason);
+        if (requests[index]) requests[index].rejectReason = input.value.trim();
+      });
+      addLog('建议状态已保存', '后台保存了建议状态、回复和拒绝原因。', '建议', 'blue');
+      saveLocalData();
+      renderAll();
+      renderPanel('requestManage');
+      showToast('建议修改已保存');
+    }
+
+    function savePlayItem(index) {
+      const read = field => document.querySelector(`[data-play-field="${field}"][data-index="${index}"]`).value.trim();
+      playItems[index] = {
+        key: read('key') || `play-${Date.now()}`,
+        icon: read('icon') || 'map',
+        title: read('title') || '未命名玩法',
+        subtitle: read('subtitle'),
+        image: (read('images').split('\n').map(item => item.trim()).filter(Boolean)[0] || read('image')),
+        images: read('images').split('\n').map(item => item.trim()).filter(Boolean),
+        text: read('text'),
+        points: read('points').split('\n').map(item => item.trim()).filter(Boolean)
+      };
+      addLog('玩法已保存', `后台更新了玩法：${playItems[index].title}`);
+      saveLocalData();
+      renderAll();
+      showToast('玩法已保存');
+    }
+
+    function saveUpdateItem(index) {
+      const read = field => document.querySelector(`[data-update-field="${field}"][data-index="${index}"]`).value.trim();
+      updates[index] = {
+        version: read('version') || '公告',
+        status: read('status') || '已发布',
+        title: read('title') || '未命名活动',
+        text: read('text')
+      };
+      addLog('活动已保存', `后台更新了活动：${updates[index].title}`, '活动', 'amber');
+      saveLocalData();
+      renderAll();
+      showToast('活动已保存');
+    }
+
+    function moveItem(list, index, direction) {
+      const target = index + direction;
+      if (target < 0 || target >= list.length) return false;
+      [list[index], list[target]] = [list[target], list[index]];
+      return true;
+    }
+
+    function voteRequest(index, type) {
+      const item = requests[index];
+      if (!item) return;
+      if (normalizeRequestStatus(item.status) !== 'pending') {
+        showToast('已完成和已拒绝建议仅展示，不支持投票');
+        renderRequests();
+        return;
+      }
+      const voter = getCurrentVoterName();
+      if (!voter) {
+        showToast('请先填写游戏内名称再投票');
+        return;
+      }
+      const requestId = getRequestId(item, index);
+      requestVotes[requestId] = requestVotes[requestId] || {};
+      if (requestVotes[requestId][voter]) {
+        showToast('你已经投过票了');
+        renderRequests();
+        return;
+      }
+      requestVotes[requestId][voter] = type;
+      if (type === 'agree') item.agree = Number(item.agree || 0) + 1;
+      if (type === 'disagree') item.disagree = Number(item.disagree || 0) + 1;
+      saveLocalData();
+      renderRequests();
+      renderHomeSuggestions();
+      showToast(type === 'agree' ? '已记录同意' : '已记录否定');
+    }
+
+    function downloadTextFile(filename, text) {
+      const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportSiteData() {
+      downloadTextFile(`erp14-site-backup-${Date.now()}.json`, JSON.stringify(getSiteDataSnapshot(), null, 2));
+      showToast('配置已导出');
+    }
+
+    function applyImportedSiteData(data) {
+      heroImages = mergeArray(heroImages, data.heroImages);
+      serverInfo = mergeObject(serverInfo, data.serverInfo);
+      playItems = mergeArray(playItems, data.playItems);
+      requests = mergeArray(requests, data.requests);
+      updates = mergeArray(updates, data.updates);
+      siteSections = mergeObject(siteSections, data.siteSections);
+      normalizeSiteSections();
+      homeStats = mergeArray(homeStats, data.homeStats);
+      homeFeatures = mergeObject(homeFeatures, data.homeFeatures);
+      serverRules = mergeObject(serverRules, data.serverRules);
+      playerSessions = mergeArray(playerSessions, data.playerSessions);
+      buildingTemplates = mergeArray(buildingTemplates, data.buildingTemplates);
+      logs = mergeArray(logs, data.logs);
+      imageLibrary = mergeArray(imageLibrary, data.imageLibrary);
+      saveLocalData();
+      renderAll();
+    }
+
+    function importSiteDataFromText() {
+      try {
+        const data = JSON.parse(document.getElementById('importSiteDataText').value);
+        applyImportedSiteData(data);
+        showToast('备份已导入');
+      } catch (error) {
+        markPanelFailed('导入失败，JSON 格式不正确');
+        showToast('导入失败，JSON 格式不正确');
+      }
+    }
+
+    function resetSiteData() {
+      if (!confirm('确认恢复默认数据？当前本地修改会被覆盖。')) return;
+      localStorage.removeItem('erp14-site-data');
+      location.reload();
+    }
+
+    function handlePanelAction(action, index, event) {
+      if (action === 'vote-request') {
+        voteRequest(index, event?.target?.dataset.vote || 'agree');
+      }
+      if (action === 'remove-managed-image') {
+        const button = event?.target?.closest('[data-action]');
+        removeManagedImage(button?.dataset.imageTarget || '', button?.dataset.ownerIndex || '', Number(button?.dataset.imageIndex));
+      }
+      if (action === 'move-managed-image') {
+        const button = event?.target?.closest('[data-action]');
+        moveManagedImage(button?.dataset.imageTarget || '', button?.dataset.ownerIndex || '', Number(button?.dataset.imageIndex), Number(button?.dataset.direction));
+      }
+      if (action === 'select-library-image') {
+        const button = event?.target?.closest('[data-action="select-library-image"]');
+        event?.preventDefault();
+        event?.stopPropagation();
+        selectLibraryImage(button?.dataset.imageTarget || '', button?.dataset.ownerIndex || '', Number(button?.dataset.libraryIndex), button?.dataset.single === 'true');
+      }
+      if (action === 'copy-library-image') {
+        const item = imageLibrary[index];
+        if (item) {
+          navigator.clipboard?.writeText(item.src);
+          showToast('图片地址已复制');
+        }
+      }
+      if (action === 'delete-library-image' && imageLibrary[index] && confirm('确认删除这张图片？')) {
+        imageLibrary.splice(index, 1);
+        saveLocalData();
+        renderPanel('imageLibrary');
+        showToast('图片已删除');
+      }
+      if (action === 'view-request') {
+        const item = requests[index];
+        if (item) alert(`建议：${item.title}
+提交人：${item.user}
+分类：${item.category || '优化'}
+联系方式：${item.contact || '未填写'}
+图片数量：${Array.isArray(item.images) ? item.images.length : 0}
+状态：${requestLabel(item.status)}
+管理员回复：${item.adminReply || '无'}
+拒绝原因：${item.rejectReason || '无'}
+
+${item.text}`);
+      }
+      if (action === 'move-request-up' && moveItem(requests, index, -1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('requestManage');
+      }
+      if (action === 'move-request-down' && moveItem(requests, index, 1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('requestManage');
+      }
+      if (action === 'delete-request' && confirm('确认删除这张玩家建议卡片？')) {
+        const [removed] = requests.splice(index, 1);
+        addLog('建议已删除', removed.title, '建议', 'red');
+        saveLocalData();
+        renderAll();
+        renderPanel('requestManage');
+      }
+      if (action === 'add-template') {
+        buildingTemplates.unshift({ title: '新建筑模板', price: '价格待定', image: heroImages[0] || '', images: heroImages[0] ? [heroImages[0]] : [], description: '请填写模板介绍。', note: '备注待补充。', onShelf: true, stock: '不限', limit: '不限购', buyUrl: '#' });
+        saveLocalData();
+        renderPanel('templateManage');
+      }
+      if (action === 'move-template-up' && moveItem(buildingTemplates, index, -1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('templateManage');
+      }
+      if (action === 'move-template-down' && moveItem(buildingTemplates, index, 1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('templateManage');
+      }
+      if (action === 'save-template') saveBuildingTemplate(index);
+      if (action === 'delete-template' && confirm('确认删除这个建筑模板？')) {
+        const [removed] = buildingTemplates.splice(index, 1);
+        addLog('建筑模板已删除', removed.title, '建筑', 'red');
+        saveLocalData();
+        renderAll();
+        renderPanel('templateManage');
+      }
+      if (action === 'add-play') {
+        playItems.push({ key: `play-${Date.now()}`, icon: 'map', title: '新玩法', subtitle: '后台新增玩法', image: heroImages[0] || '', images: heroImages[0] ? [heroImages[0]] : [], text: '请填写玩法说明。', points: ['要点一'] });
+        saveLocalData();
+        renderPanel('playManage');
+      }
+      if (action === 'move-play-up' && moveItem(playItems, index, -1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('playManage');
+      }
+      if (action === 'move-play-down' && moveItem(playItems, index, 1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('playManage');
+      }
+      if (action === 'save-play') savePlayItem(index);
+      if (action === 'delete-play' && playItems.length > 1 && confirm('确认删除这个玩法？')) {
+        const [removed] = playItems.splice(index, 1);
+        addLog('玩法已删除', removed.title, '玩法', 'red');
+        saveLocalData();
+        renderAll();
+      }
+      if (action === 'add-update') {
+        updates.unshift({ version: '公告', status: '草稿', title: '新活动', text: '请填写活动内容。' });
+        saveLocalData();
+        renderPanel('updateManage');
+      }
+      if (action === 'move-update-up' && moveItem(updates, index, -1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('updateManage');
+      }
+      if (action === 'move-update-down' && moveItem(updates, index, 1)) {
+        saveLocalData();
+        renderAll();
+        renderPanel('updateManage');
+      }
+      if (action === 'save-update') saveUpdateItem(index);
+      if (action === 'delete-update' && confirm('确认删除这个活动？')) {
+        const [removed] = updates.splice(index, 1);
+        addLog('活动已删除', removed.title, '活动', 'red');
+        saveLocalData();
+        renderAll();
+      }
+    }
+
+    function handlePanelFileAction(input) {
+      const action = input.dataset.action;
+      const index = Number(input.dataset.index);
+      if (action === 'upload-library-image') {
+        const room = Math.max(0, IMAGE_LIBRARY_MAX_ITEMS - imageLibrary.length);
+        if (!room) {
+          showToast(`图片库最多保留 ${IMAGE_LIBRARY_MAX_ITEMS} 张，请先删除旧图`);
+          return;
+        }
+        if (adminToken) {
+          uploadImageFilesToBackend(input.files, Math.min(room, 30)).then(images => {
+            if (!images.length) return;
+            images.forEach((src, i) => imageLibrary.unshift({ src, name: `图片 ${nowText()}-${i + 1}`, createdAt: nowText() }));
+            saveLocalData();
+            renderPanel('imageLibrary');
+            showToast(`已上传 ${images.length} 张图片到后端图片库`);
+          }).catch(() => {
+            showToast('上传到后端失败，请确认本地后端已启动');
+          });
+          return;
+        }
+        readImageFiles(input.files, Math.min(room, 30), images => {
+          if (!images.length) return;
+          const estimatedNextSize = estimateSiteStorageBytes() + images.join('').length * 2;
+          if (estimatedNextSize > IMAGE_STORAGE_HARD_LIMIT) {
+            showToast('图片太多，可能导致本地保存失败，请删除旧图或改用外链');
+            return;
+          }
+          images.forEach((src, i) => imageLibrary.unshift({ src, name: `图片 ${nowText()}-${i + 1}`, createdAt: nowText() }));
+          saveLocalData();
+          renderPanel('imageLibrary');
+          showToast(`已上传 ${images.length} 张图片到图片库`);
+        }, { maxSide: 1280 });
+        return;
+      }
+      if (action === 'import-site-file') {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          document.getElementById('importSiteDataText').value = reader.result;
+          markPanelDirty();
+          showToast('备份文件已读取，点击导入备份生效');
+        };
+        reader.readAsText(file);
+        return;
+      }
+      if (action === 'upload-template-image' && buildingTemplates[index]) {
+        appendManagedImages('template', String(index), input.files, 10, '模板图片');
+        return;
+      }
+      if (action === 'upload-play-image' && playItems[index]) {
+        appendManagedImages('play', String(index), input.files, 10, '玩法图片');
+        return;
+      }
+      if (action === 'upload-hero-image') {
+        appendManagedImages('hero', '', input.files, 10, '首页轮播图');
+        return;
+      }
+      if (action === 'upload-rules-image') {
+        appendManagedImages('rules', '', input.files, 1, '服规小插图', 900);
+        return;
+      }
+      if (action === 'upload-group-qr') {
+        appendManagedImages('group', '', input.files, 1, '玩家群二维码', 900);
+        return;
+      }
+    }
+
+    function setupSectionDragSort() {
+      const list = document.getElementById('sectionOrderList');
+      if (!list) return;
+      let dragged = null;
+      list.querySelectorAll('[data-section-row]').forEach(row => {
+        row.addEventListener('dragstart', () => {
+          dragged = row;
+          row.classList.add('dragging');
+        });
+        row.addEventListener('dragend', () => row.classList.remove('dragging'));
+        row.addEventListener('dragover', event => {
+          event.preventDefault();
+          const target = event.currentTarget;
+          if (!dragged || dragged === target) return;
+          const box = target.getBoundingClientRect();
+          const after = event.clientY > box.top + box.height / 2;
+          list.insertBefore(dragged, after ? target.nextSibling : target);
+          [...list.querySelectorAll('[data-section-row]')].forEach((item, index) => {
+            const key = item.dataset.sectionRow;
+            const orderInput = item.querySelector(`[data-section-order="${key}"]`);
+            if (orderInput) orderInput.value = (index + 1) * 10;
+          });
+        });
+      });
+    }
+
+    function openImageViewer(src, title = '', gallery = [src], index = 0) {
+      if (!src) return;
+      imageViewerGallery = gallery.filter(Boolean);
+      imageViewerIndex = Math.max(0, Math.min(index, imageViewerGallery.length - 1));
+      updateImageViewer(title);
+      document.getElementById('imageViewer').classList.add('show');
+    }
+
+    function updateImageViewer(title = '') {
+      const src = imageViewerGallery[imageViewerIndex] || '';
+      document.getElementById('imageViewerImg').src = src;
+      document.getElementById('imageViewerTitle').textContent = title;
+      document.getElementById('imageViewerCount').textContent = imageViewerGallery.length > 1 ? `${imageViewerIndex + 1} / ${imageViewerGallery.length}` : '';
+      document.getElementById('imageViewerPrev').disabled = imageViewerGallery.length <= 1;
+      document.getElementById('imageViewerNext').disabled = imageViewerGallery.length <= 1;
+    }
+
+    function moveImageViewer(direction) {
+      if (imageViewerGallery.length <= 1) return;
+      imageViewerIndex = (imageViewerIndex + direction + imageViewerGallery.length) % imageViewerGallery.length;
+      updateImageViewer(document.getElementById('imageViewerTitle').textContent);
+    }
+
+    function closeImageViewer() {
+      document.getElementById('imageViewer').classList.remove('show');
+      document.getElementById('imageViewerImg').removeAttribute('src');
+      imageViewerGallery = [];
+      imageViewerIndex = 0;
+    }
+
+    function showTemplateImage(index, direction) {
+      const item = buildingTemplates[index];
+      if (!item) return;
+      const images = normalizeTemplateImages(item);
+      if (!images.length) return;
+      const card = document.querySelector(`[data-template-card="${index}"]`);
+      if (!card) return;
+      const current = Number(card.dataset.imageIndex || 0);
+      const next = (current + direction + images.length) % images.length;
+      card.dataset.imageIndex = next;
+      const media = card.querySelector('.template-media');
+      media.style.backgroundImage = `url('${images[next]}')`;
+      media.dataset.openImage = images[next];
+      media.dataset.imageIndex = String(next);
+      const count = card.querySelector('.template-count');
+      if (count) count.textContent = `${next + 1} / ${images.length}`;
+    }
+
+    function showPlayImage(index, direction) {
+      const item = playItems[index];
+      if (!item) return;
+      const images = normalizePlayImages(item);
+      if (!images.length) return;
+      const card = document.querySelector(`[data-play-card="${index}"]`);
+      if (!card) return;
+      const current = Number(card.dataset.imageIndex || 0);
+      const next = (current + direction + images.length) % images.length;
+      card.dataset.imageIndex = next;
+      const media = card.querySelector('.play-card-media');
+      media.style.backgroundImage = `url('${images[next]}')`;
+      media.dataset.openImage = images[next];
+      media.dataset.imageIndex = String(next);
+      const count = card.querySelector('.template-count');
+      if (count) count.textContent = `${next + 1} / ${images.length}`;
+    }
+
+    function renderPanel(name = 'overview') {
+      document.querySelectorAll('[data-panel]').forEach(btn => btn.classList.toggle('active', btn.dataset.panel === name));
+      const panel = document.getElementById('panelMain');
+      const view = panelViews[name] || panelViews.overview;
+      panel.innerHTML = typeof view === 'function' ? view() : view;
+      applyIcons(panel);
+      if (name === 'settings') {
+        document.getElementById('saveServerInfo').addEventListener('click', saveServerSettings);
+      }
+      if (name === 'visibilityManage') {
+        document.getElementById('saveVisibility').addEventListener('click', saveVisibilitySettings);
+        setupSectionDragSort();
+      }
+      if (name === 'homeManage') {
+        document.getElementById('saveHomeHero').addEventListener('click', saveHomeHero);
+        document.getElementById('saveHomeRules').addEventListener('click', saveHomeRules);
+        document.getElementById('saveHomeFeatures').addEventListener('click', saveHomeFeatures);
+        document.getElementById('saveHomeStats').addEventListener('click', saveHomeStats);
+      }
+      if (name === 'groupManage') {
+        document.getElementById('saveGroupSettings').addEventListener('click', saveGroupSettings);
+      }
+      if (name === 'requestManage') {
+        document.getElementById('adminRequestFilter')?.addEventListener('change', event => {
+          adminRequestFilter = event.target.value;
+          renderPanel('requestManage');
+        });
+        document.getElementById('saveRequestChanges')?.addEventListener('click', saveRequestChanges);
+      }
+      if (name === 'backupManage') {
+        document.getElementById('exportSiteData')?.addEventListener('click', exportSiteData);
+        document.getElementById('importSiteData')?.addEventListener('click', importSiteDataFromText);
+        document.getElementById('resetSiteData')?.addEventListener('click', resetSiteData);
+      }
+      panel.oninput = markPanelDirty;
+      panel.onchange = markPanelDirty;
+      if (name === 'adminLogin') {
+        document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
+      }
+      panel.onclick = event => {
+        const btn = event.target.closest('[data-action]');
+        if (btn && panel.contains(btn)) handlePanelAction(btn.dataset.action, Number(btn.dataset.index), event);
+      };
+      panel.querySelectorAll('input[type="file"][data-action]').forEach(input => {
+        input.addEventListener('change', () => handlePanelFileAction(input));
+      });
+    }
+
+    function registerPlayer(name) {
+      activePlayerName = name.trim();
+      localStorage.setItem('erp14-player-name', activePlayerName);
+      const existing = playerSessions.find(player => player.name.toLowerCase() === activePlayerName.toLowerCase());
+      if (existing) {
+        existing.visits += 1;
+        existing.lastSeen = nowText();
+      } else {
+        playerSessions.unshift({ name: activePlayerName, visits: 1, lastSeen: nowText() });
+      }
+      addLog('玩家进入网页', `${activePlayerName} 已登记并进入网页`, '登录', 'green');
+      saveLocalData();
+      document.getElementById('playerGate').classList.remove('show');
+      renderAll();
+      showToast(`欢迎，${activePlayerName}`);
+    }
+
+    function setupPlayerGate() {
+      const savedName = localStorage.getItem('erp14-player-name');
+      const gate = document.getElementById('playerGate');
+      if (savedName) {
+        registerPlayer(savedName);
+      } else {
+        gate.classList.add('show');
+      }
+      document.getElementById('playerGateForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const name = document.getElementById('playerGameName').value.trim();
+        if (name.length < 2) {
+          showToast('请输入至少 2 个字符的游戏名');
+          return;
+        }
+        registerPlayer(name);
+      });
+    }
+
+    document.getElementById('menuBtn').innerHTML = icons.menu;
+    document.getElementById('menuBtn').addEventListener('click', () => document.getElementById('nav').classList.toggle('open'));
+    document.getElementById('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+    document.querySelectorAll('[data-route]').forEach(el => {
+      el.addEventListener('click', event => {
+        if (el.dataset.route) {
+          event.preventDefault();
+          switchRoute(el.dataset.route);
+        }
+      });
+    });
+    document.querySelectorAll('[data-toast]').forEach(el => el.addEventListener('click', () => showToast(el.dataset.toast)));
+    document.getElementById('requestSearch').addEventListener('input', renderRequests);
+    document.querySelectorAll('#requestTabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#requestTabs button').forEach(item => item.classList.remove('active'));
+        btn.classList.add('active');
+        renderRequests();
+      });
+    });
+    document.querySelectorAll('#requestCategoryFilters button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#requestCategoryFilters button').forEach(item => item.classList.remove('active'));
+        btn.classList.add('active');
+        renderRequests();
+      });
+    });
+    document.getElementById('openRequest').addEventListener('click', openRequestModal);
+    document.getElementById('cancelRequest').addEventListener('click', closeRequestModal);
+    document.getElementById('closeRequest').addEventListener('click', closeRequestModal);
+    document.getElementById('requestImages').addEventListener('change', event => handleRequestImageFiles(event.target.files));
+    document.getElementById('requestForm').addEventListener('submit', submitRequest);
+    document.getElementById('closeImageViewer').addEventListener('click', closeImageViewer);
+    document.getElementById('imageViewerPrev').addEventListener('click', () => moveImageViewer(-1));
+    document.getElementById('imageViewerNext').addEventListener('click', () => moveImageViewer(1));
+    document.getElementById('imageViewer').addEventListener('click', event => {
+      if (event.target.id === 'imageViewer') closeImageViewer();
+    });
+    document.querySelectorAll('[data-panel]').forEach(btn => btn.addEventListener('click', () => renderPanel(btn.dataset.panel)));
+    document.addEventListener('click', event => {
+      const frontVote = event.target.closest('[data-action="vote-request"]');
+      if (frontVote && !frontVote.closest('#panelMain')) {
+        voteRequest(Number(frontVote.dataset.index), frontVote.dataset.vote || 'agree');
+        return;
+      }
+      const trigger = event.target.closest('[data-toast]');
+      if (trigger) showToast(trigger.dataset.toast);
+      const removeRequestImage = event.target.closest('[data-request-image-remove]');
+      if (removeRequestImage) {
+        pendingRequestImages.splice(Number(removeRequestImage.dataset.requestImageRemove), 1);
+        updateRequestImagePreview();
+        return;
+      }
+      const imageTrigger = event.target.closest('[data-open-image]');
+      if (imageTrigger) {
+        const galleryName = imageTrigger.dataset.gallery;
+        let gallery = [imageTrigger.dataset.openImage];
+        if (galleryName?.startsWith('template-')) {
+          const templateIndex = Number(galleryName.replace('template-', ''));
+          gallery = normalizeTemplateImages(buildingTemplates[templateIndex] || {});
+        } else if (galleryName?.startsWith('play-')) {
+          const playIndex = Number(galleryName.replace('play-', ''));
+          gallery = normalizePlayImages(playItems[playIndex] || {});
+        } else if (galleryName) {
+          gallery = [...document.querySelectorAll(`[data-open-image][data-gallery="${galleryName}"]`)].map(item => item.dataset.openImage);
+        }
+        const index = Math.max(0, gallery.indexOf(imageTrigger.dataset.openImage));
+        openImageViewer(imageTrigger.dataset.openImage, imageTrigger.dataset.imageTitle || '', gallery, index);
+      }
+      const templateControl = event.target.closest('[data-template-control]');
+      if (templateControl) showTemplateImage(Number(templateControl.dataset.index), templateControl.dataset.templateControl === 'next' ? 1 : -1);
+      const playControl = event.target.closest('[data-play-control]');
+      if (playControl) showPlayImage(Number(playControl.dataset.index), playControl.dataset.playControl === 'next' ? 1 : -1);
+    });
+
+    function renderAll() {
+      renderHero();
+      renderHeroCarousel();
+      renderHomeStats();
+      renderHomeFeatures();
+      renderHomeSuggestions();
+      renderBuildingTemplates();
+      renderServerRules();
+      applySectionControls();
+      renderPlay();
+      renderRequests();
+      renderUpdates();
+      const activePanel = document.querySelector('[data-panel].active')?.dataset.panel || 'overview';
+      renderPanel(activePanel);
+      applyContentOverrides();
+    }
+
+    setTheme(localStorage.getItem('erp14-theme') || 'light');
+    loadLocalData();
+    applyIcons();
+    renderAll();
+    setupPlayerGate();
+    loadBackendConfig();
+    setInterval(() => {
+      if (heroImages.length) showHeroSlide((currentHeroSlide + 1) % heroImages.length);
+    }, 4500);
+    const initial = location.hash.replace('#', '');
+    if (initial && document.getElementById(initial)) switchRoute(initial);
+  </script>
+</body>
+</html>
