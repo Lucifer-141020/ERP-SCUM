@@ -908,6 +908,33 @@
       line-height: 1.7;
     }
 
+    #panel.admin-locked .section-head,
+    #panel.admin-locked .panel-side,
+    #panel.admin-locked .login-art {
+      display: none;
+    }
+
+    #panel.admin-locked .panel-shell {
+      display: block;
+      max-width: 360px;
+      min-height: 0;
+      margin: 0 auto;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    #panel.admin-locked #panelMain {
+      padding: 0;
+    }
+
+    #panel.admin-locked .login-wrap {
+      display: block;
+    }
+
+    #panel.admin-locked .login-wrap > .card.pad {
+      min-height: 464px;
+    }
     .form {
       display: grid;
       gap: 14px;
@@ -3638,6 +3665,7 @@ ${renderManagedImageField({
         if (response.status === 401) {
           adminToken = '';
           localStorage.removeItem(ADMIN_TOKEN_KEY);
+          redirectToAdminLogin();
         }
         throw new Error('SAVE_FAILED');
       }
@@ -4986,10 +5014,28 @@ ${item.text}`);
       if (count) count.textContent = `${next + 1} / ${images.length}`;
     }
 
+    function isAdminLoginPanel(name) {
+      return name === 'adminLogin';
+    }
+
+    function canRenderAdminPanel(name) {
+      return isAdminLoginPanel(name) || Boolean(adminToken);
+    }
+
+    function redirectToAdminLogin() {
+      showToast('请先输入管理员密码');
+      renderPanel('adminLogin');
+    }
+
     function renderPanel(name = 'overview') {
+      if (!canRenderAdminPanel(name)) {
+        name = 'adminLogin';
+      }
+      const lockedAdmin = name === 'adminLogin' && !adminToken;
+      document.getElementById('panel')?.classList.toggle('admin-locked', lockedAdmin);
       document.querySelectorAll('[data-panel]').forEach(btn => btn.classList.toggle('active', btn.dataset.panel === name));
       const panel = document.getElementById('panelMain');
-      const view = panelViews[name] || panelViews.overview;
+      const view = panelViews[name] || panelViews.adminLogin;
       panel.innerHTML = typeof view === 'function' ? view() : view;
       applyIcons(panel);
       if (name === 'settings') {
@@ -5020,8 +5066,13 @@ ${item.text}`);
         document.getElementById('importSiteData')?.addEventListener('click', importSiteDataFromText);
         document.getElementById('resetSiteData')?.addEventListener('click', resetSiteData);
       }
-      panel.oninput = markPanelDirty;
-      panel.onchange = markPanelDirty;
+      if (name !== 'adminLogin') {
+        panel.oninput = markPanelDirty;
+        panel.onchange = markPanelDirty;
+      } else {
+        panel.oninput = null;
+        panel.onchange = null;
+      }
       if (name === 'adminLogin') {
         document.getElementById('adminLoginForm').addEventListener('submit', handleAdminLogin);
       }
@@ -5108,7 +5159,13 @@ ${item.text}`);
     document.getElementById('imageViewer').addEventListener('click', event => {
       if (event.target.id === 'imageViewer') closeImageViewer();
     });
-    document.querySelectorAll('[data-panel]').forEach(btn => btn.addEventListener('click', () => renderPanel(btn.dataset.panel)));
+    document.querySelectorAll('[data-panel]').forEach(btn => btn.addEventListener('click', () => {
+      if (!canRenderAdminPanel(btn.dataset.panel)) {
+        redirectToAdminLogin();
+        return;
+      }
+      renderPanel(btn.dataset.panel);
+    }));
     document.addEventListener('click', event => {
       const frontVote = event.target.closest('[data-action="vote-request"]');
       if (frontVote && !frontVote.closest('#panelMain')) {
