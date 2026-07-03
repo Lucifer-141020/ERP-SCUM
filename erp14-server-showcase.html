@@ -3176,7 +3176,14 @@
       ]
     };
 
-    const API_BASE_URL = (window.ERP14_API_BASE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+    function getDefaultApiBaseUrl() {
+      const { protocol, hostname, origin } = window.location;
+      const isLocalHost = hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '';
+      if (protocol === 'file:' || isLocalHost) return 'http://127.0.0.1:3000';
+      return origin;
+    }
+
+    const API_BASE_URL = (window.ERP14_API_BASE_URL || getDefaultApiBaseUrl()).replace(/\/$/, '');
     const BACKEND_CONFIG_URL = window.ERP14_CONFIG_URL || `${API_BASE_URL}/api/site-config`;
     const ADMIN_TOKEN_KEY = 'erp14-admin-token';
     let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
