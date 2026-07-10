@@ -159,53 +159,62 @@ test('新增保存函数 saveHomeHeroImages 存在', function() {
   }
 });
 
-// ====== 新手入服引导卡结构测试（Task 1，检查 frontend/index.html） ======
+// ====== 头图快捷操作结构测试（检查 frontend/index.html） ======
 
-test('首页应包含新手入服引导区', function() {
-  if (frontendHtml.indexOf('id="newPlayerGuideSection"') === -1) {
-    throw new Error('首页应包含新手入服引导区');
+test('首页不再包含五步新手引导区', function() {
+  if (frontendHtml.indexOf('id="newPlayerGuideSection"') !== -1) {
+    throw new Error('旧五步新手引导区仍然存在');
   }
 });
 
-test('引导区应包含动态服务器 IP', function() {
-  if (frontendHtml.indexOf('id="guideServerIp"') === -1) {
-    throw new Error('引导区应包含动态服务器 IP');
+test('服务器编号保持普通展示', function() {
+  if (frontendHtml.indexOf('id="heroServerNo"') === -1) {
+    throw new Error('服务器编号展示节点丢失');
+  }
+
+  if (
+    frontendHtml.indexOf('data-hero-action="copy-server-no"') !== -1 ||
+    frontendHtml.indexOf('data-hero-action="open-server-no"') !== -1
+  ) {
+    throw new Error('服务器编号不应绑定点击操作');
   }
 });
 
-test('引导区应包含动态 QQ 群号', function() {
-  if (frontendHtml.indexOf('id="guideGroupNumber"') === -1) {
-    throw new Error('引导区应包含动态 QQ 群号');
+test('头图 IP 信息块支持点击复制', function() {
+  if (frontendHtml.indexOf('data-hero-action="copy-ip"') === -1) {
+    throw new Error('IP 信息块缺少 copy-ip 操作');
+  }
+
+  if (frontendHtml.indexOf('id="heroServerIp"') === -1) {
+    throw new Error('heroServerIp 节点丢失');
   }
 });
 
-test('引导区应包含 copy-ip 操作', function() {
-  if (frontendHtml.indexOf('data-guide-action="copy-ip"') === -1) {
-    throw new Error('引导区应包含 copy-ip 操作');
+test('头图 QQ群信息块支持打开加群页面', function() {
+  if (frontendHtml.indexOf('id="heroGroupLink"') === -1) {
+    throw new Error('QQ群信息块缺少 heroGroupLink');
+  }
+
+  if (frontendHtml.indexOf('id="heroGroup"') === -1) {
+    throw new Error('heroGroup 节点丢失');
   }
 });
 
-test('引导区应包含 copy-group 操作', function() {
-  if (frontendHtml.indexOf('data-guide-action="copy-group"') === -1) {
-    throw new Error('引导区应包含 copy-group 操作');
-  }
-});
+test('旧引导动作已移除', function() {
+  var removedActions = [
+    'read-rules',
+    'enter-server',
+    'contact-admin'
+  ];
 
-test('引导区应包含 read-rules 操作', function() {
-  if (frontendHtml.indexOf('data-guide-action="read-rules"') === -1) {
-    throw new Error('引导区应包含 read-rules 操作');
-  }
-});
+  var remaining = removedActions.filter(function(action) {
+    return frontendHtml.indexOf(
+      'data-guide-action="' + action + '"'
+    ) !== -1;
+  });
 
-test('引导区应包含 enter-server 操作', function() {
-  if (frontendHtml.indexOf('data-guide-action="enter-server"') === -1) {
-    throw new Error('引导区应包含 enter-server 操作');
-  }
-});
-
-test('引导区应包含 contact-admin 操作', function() {
-  if (frontendHtml.indexOf('data-guide-action="contact-admin"') === -1) {
-    throw new Error('引导区应包含 contact-admin 操作');
+  if (remaining.length > 0) {
+    throw new Error('仍存在旧引导动作：' + remaining.join(', '));
   }
 });
 
