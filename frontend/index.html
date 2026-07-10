@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Erp 14 - SCUM 服务器</title>
+  <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="menu-btn" id="menuBtn" title="菜单" aria-label="菜单"></button>
+    <a class="brand" href="#home" data-route="home">
+      <span class="brand-mark">14</span>
+      <span>
+        <strong>Erp 14</strong>
+        <span>SCUM 生存服务器</span>
+      </span>
+    </a>
+    <nav class="nav" id="nav">
+      <button class="active" data-route="home">首页</button>
+      <button data-route="play">玩法</button>
+      <button data-route="requests">玩家建议</button>
+      <button data-route="events">每周活动</button>
+      <button data-route="panel">管理</button>
+    </nav>
+    <div class="top-actions">
+      <a class="btn btn-secondary" id="joinGroupLink" href="https://qm.qq.com/q/mJgyxzi2YM" target="_blank" rel="noopener noreferrer">加入玩家群</a>
+      <button class="icon-btn" id="themeBtn" title="切换亮色/暗色模式" aria-label="切换亮色/暗色模式"></button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="view active" id="home">
+      <div class="home-hero-shell">
+        <div class="hero card">
+          <div class="hero-slides" id="heroSlides"></div>
+          <div class="carousel-progress" id="heroProgress">
+            <div class="carousel-progress-bar" id="heroProgressBar" style="width: 0%"></div>
+          </div>
+          <div class="hero-inner">
+            <span class="eyebrow"><span data-icon="signal"></span> <span id="heroSeason">赛季进行中 · 长期稳定开放</span></span>
+            <h1 id="heroTitle">Erp 14</h1>
+            <p id="heroDescription">一个面向长期玩家的 SCUM 生存服务器。这里强调公平、合作、探索、基地建设和有节奏的活动，让新手能站稳，老玩家有目标。</p>
+            <div class="hero-info">
+              <span>服务器编号：<strong id="heroServerNo">Erp 14-A</strong></span>
+              <span>IP 地址：<strong id="heroServerIp">127.0.0.1:7777</strong></span>
+              <span>QQ群：<strong id="heroGroup">123456789</strong></span>
+            </div>
+          </div>
+          <div class="hero-dots" id="heroDots" aria-label="首页图片轮播"></div>
+        </div>
+
+        <div class="home-activity-stack">
+          <aside class="home-side-panel activity-panel card" aria-label="玩家活动报名入口">
+            <div class="activity-panel-header">
+              <span class="side-panel-kicker">报名入口</span>
+              <h2>玩家活动报名</h2>
+              <span class="activity-panel-header-note">仅展示已发布、未过期的活动。</span>
+            </div>
+            <section class="activity-panel-section activity-panel-fixed" aria-label="长期固定活动区">
+              <div class="activity-section-header">
+                <h3>长期固定活动区</h3>
+                <span class="activity-panel-section-note">长期内容只展示，不需要玩家报名。</span>
+              </div>
+              <div class="activity-rail" id="fixedActivityRail">
+                <div class="activity-grid" id="fixedActivityList"></div>
+              </div>
+            </section>
+            <section class="activity-panel-section activity-panel-signup" aria-label="临时报名区">
+              <div class="activity-section-header">
+                <h3>临时报名区</h3>
+                <span class="activity-panel-section-note">玩家点击活动后填写名称和备注。</span>
+              </div>
+              <div class="activity-rail" id="signupActivityRail">
+                <div class="activity-grid" id="activitySignupList"></div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <section class="section-block newbie-guide" id="newPlayerGuideSection" aria-labelledby="newPlayerGuideTitle">
+        <div class="section-head newbie-guide-head">
+          <div>
+            <span class="newbie-guide-kicker">新玩家必看</span>
+            <h2 id="newPlayerGuideTitle">5 步加入服务器</h2>
+            <p>照着操作，几分钟即可完成入服准备。</p>
+          </div>
+        </div>
+
+        <ol class="newbie-guide-steps">
+          <li class="card newbie-guide-step">
+            <span class="newbie-guide-number">1</span>
+            <div>
+              <h3>复制服务器 IP</h3>
+              <p>当前地址：<strong id="guideServerIp">127.0.0.1:7777</strong></p>
+            </div>
+            <button class="btn btn-primary" type="button" data-guide-action="copy-ip">复制 IP</button>
+          </li>
+
+          <li class="card newbie-guide-step">
+            <span class="newbie-guide-number">2</span>
+            <div>
+              <h3>加入 QQ 群</h3>
+              <p>群号：<strong id="guideGroupNumber">123456789</strong></p>
+            </div>
+            <button class="btn btn-secondary" type="button" data-guide-action="copy-group">复制群号</button>
+          </li>
+
+          <li class="card newbie-guide-step">
+            <span class="newbie-guide-number">3</span>
+            <div>
+              <h3>阅读规则</h3>
+              <p>入服前先了解服务器注意事项。</p>
+            </div>
+            <button class="btn btn-secondary" type="button" data-guide-action="read-rules">查看规则</button>
+          </li>
+
+          <li class="card newbie-guide-step">
+            <span class="newbie-guide-number">4</span>
+            <div>
+              <h3>进入服务器</h3>
+              <p>打开 SCUM，使用服务器 IP 搜索或直连。</p>
+            </div>
+            <button class="btn btn-secondary" type="button" data-guide-action="enter-server">进入说明</button>
+          </li>
+
+          <li class="card newbie-guide-step">
+            <span class="newbie-guide-number">5</span>
+            <div>
+              <h3>遇到问题</h3>
+              <p>进入 QQ 群联系管理员协助处理。</p>
+            </div>
+            <button class="btn btn-secondary" type="button" data-guide-action="contact-admin">联系管理员</button>
+          </li>
+        </ol>
+      </section>
+
+      <div class="grid stats section-block" id="homeStatsSection" data-section="homeStats"></div>
+
+      <div class="section-block" id="homeFeaturesSection" data-section="homeFeatures">
+        <div class="section-head">
+          <div>
+            <h2 id="homeFeaturesTitle">服务器特色</h2>
+            <p id="homeFeaturesDescription">玩家打开网站时可以快速理解 Erp 14 的定位、规则和游玩目标。</p>
+          </div>
+        </div>
+        <div class="grid-4" id="homeFeatureGrid"></div>
+      </div>
+
+      <details class="section-block collapse-section" id="homeSuggestionsSection" data-section="homeSuggestions">
+        <summary class="collapse-summary">
+          <div class="collapse-head">
+            <h2>💬 玩家建议</h2>
+            <span class="collapse-badge">已完成建议展示</span>
+          </div>
+        </summary>
+        <div class="suggestion-ticker card" id="homeSuggestionTicker"></div>
+      </details>
+
+      <details class="section-block collapse-section" id="buildingTemplatesSection" data-section="buildingTemplates">
+        <summary class="collapse-summary">
+          <div class="collapse-head">
+            <h2>🏗️ 建筑模板</h2>
+            <span class="collapse-badge">点击展开查看模板</span>
+          </div>
+        </summary>
+        <div class="template-grid" id="buildingTemplateGrid"></div>
+      </details>
+
+      <div class="section-block" id="homeRulesSection" data-section="homeRules">
+        <div class="section-head">
+          <div>
+            <h2 id="homeRulesTitle">服务器注意事项</h2>
+            <p id="homeRulesDescription">入服前建议先看完这些规则，避免误会和违规。</p>
+          </div>
+        </div>
+        <div class="rule-layout card" id="homeRulesContent"></div>
+      </div>
+    </section>
+
+    <section class="view" id="play" data-section="play">
+      <div class="section-head">
+        <div>
+          <h2>玩法</h2>
+          <p>用功能标签展示服务器玩法。玩家点击“回收、称号、服务器介绍”等标签后，下方会显示对应说明、规则和图片。</p>
+        </div>
+      </div>
+      <div class="play-showcase" id="playShowcase"></div>
+    </section>
+
+    <section class="view" id="requests" data-section="requests">
+      <div class="section-head">
+        <div>
+          <h2>玩家建议</h2>
+          <p>玩家可以查看玩家建议的处理进度，已完成内容会同步滚动展示在首页。</p>
+        </div>
+        <button class="btn-primary" id="openRequest"><span class="plus-mark">+</span> 提交建议</button>
+      </div>
+      <div class="tabs request-status-tabs" id="requestTabs">
+        <button class="active" data-status="pending">待讨论</button>
+        <button data-status="done">已完成</button>
+        <button data-status="rejected">已拒绝</button>
+      </div>
+      <div class="filters request-filter-bar">
+        <input class="search" id="requestSearch" placeholder="搜索建议标题、内容或提交人" />
+        <div class="request-category-filters" id="requestCategoryFilters">
+          <button class="active" data-category="">全部</button>
+          <button data-category="BUG">BUG</button>
+          <button data-category="new">新建议</button>
+          <button data-category="optimize">优化项</button>
+        </div>
+      </div>
+      <div class="suggestion-grid" id="requestGrid"></div>
+    </section>
+
+    <section class="view" id="events" data-section="events">
+      <div class="section-head">
+        <div>
+          <h2>每周活动</h2>
+          <p>把服务器更新、规则调整和每周活动公告集中展示，玩家能随时回看。</p>
+        </div>
+      </div>
+      <div class="update-list" id="updateList"></div>
+    </section>
+
+    <section class="view" id="panel">
+      <div class="section-head">
+        <div>
+          <h2>管理</h2>
+          <p>这是面向服主和管理员的管理后台。页面数据改为后端配置驱动，前端不再预留或提供远程控制功能。</p>
+        </div>
+      </div>
+      <div class="card panel-shell">
+        <aside class="panel-side">
+          <details class="panel-group" open>
+            <summary>总览</summary>
+            <div class="panel-group-body">
+              <button class="active" data-panel="adminLogin">管理员登录</button>
+              <button data-panel="overview">运营总览</button>
+              <button data-panel="players">进入玩家</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>网站基础信息</summary>
+            <div class="panel-group-body">
+              <button data-panel="settings">服务器信息</button>
+              <button data-panel="backend">后端接入</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>首页展示</summary>
+            <div class="panel-group-body">
+              <button data-panel="visibilityManage">展示开关</button>
+              <button data-panel="homeManage">首页内容</button>
+              <button data-panel="playManage">玩法内容</button>
+              <button data-panel="groupManage">玩家群入口</button>
+              <button data-panel="templateManage">建筑模板</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>活动管理</summary>
+            <div class="panel-group-body">
+              <button data-panel="updateManage">长期 / 限时活动</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>玩家建议</summary>
+            <div class="panel-group-body">
+              <button data-panel="requestManage">建议处理</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>图片库</summary>
+            <div class="panel-group-body">
+              <button data-panel="imageLibrary">图片管理</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>备份恢复</summary>
+            <div class="panel-group-body">
+              <button data-panel="backupManage">导入 / 导出</button>
+            </div>
+          </details>
+          <details class="panel-group" open>
+            <summary>操作日志</summary>
+            <div class="panel-group-body">
+              <button data-panel="logs">日志查询</button>
+            </div>
+          </details>
+        </aside>
+        <div class="panel-main" id="panelMain"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="notice-floating" id="noticeFloating" aria-label="服务器通知">
+    <button class="notice-floating-bubble" id="noticeBubble" type="button" aria-label="展开服务器通知" title="查看服务器通知">
+      <span data-icon="bell"></span>
+      <span class="notice-bubble-dot" aria-hidden="true"></span>
+    </button>
+    <div class="notice-floating-panel card" id="noticePanel">
+      <div class="notice-floating-head">
+        <strong>服务器通知</strong>
+        <button class="notice-floating-close" id="noticeClose" type="button" aria-label="收起通知">×</button>
+      </div>
+      <div class="server-notice-card">
+        <strong>服务器稳定开放 · 活动奖励按名单发放</strong>
+        <ul class="server-notice-lines">
+          <li><b>维护公告</b><span>当前赛季长期运营，维护和重启会提前在群内与网站同步通知。</span></li>
+          <li><b>活动奖励</b><span>活动结束后按报名名单和实际参与情况统计，管理员统一发放奖励。</span></li>
+          <li><b>新手提醒</b><span>入服前建议先查看服务器注意事项，避免误会和违规。</span></li>
+          <li><b>问题反馈</b><span>BUG、规则建议和优化想法统一提交到玩家建议页，方便后台跟进。</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>© 2026 Erp 14. SCUM server showcase. 静态展示版。</footer>
+  <div class="toast" id="toast">
+    <span class="toast-icon" id="toastIcon">ℹ️</span>
+    <span class="toast-message" id="toastMessage">操作已提交</span>
+  </div>
+  <div class="modal-backdrop" id="requestModal" aria-modal="true" role="dialog" hidden>
+    <form class="modal-card request-submit-card" id="requestForm">
+      <div class="modal-topline">
+        <h2>提交玩家建议</h2>
+        <button class="modal-close" type="button" id="closeRequest" aria-label="关闭">×</button>
+      </div>
+      <label class="required-label">建议标题 <span>*</span><input id="requestTitle" placeholder="简短描述你的建议"></label>
+      <label class="required-label">建议内容 <span>*</span><textarea id="requestText" placeholder="详细说明你的建议..."></textarea></label>
+      <div class="form-grid two">
+        <label class="required-label">分类 <span>*</span><select id="requestCategory"><option value="BUG">BUG</option><option value="优化">优化</option><option value="新玩法/活动">新玩法/活动</option></select></label>
+        <label class="required-label">联系方式 <span>*</span><input id="requestContact" placeholder="QQ / 邮箱 / Discord 等"></label>
+      </div>
+      <label class="optional-label">附件图片 <small>最多5张，每张不超过5MB</small></label>
+      <label class="upload-zone" id="requestUploadZone">
+        <input id="requestImages" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+        <span class="upload-icon">⇧</span>
+        <strong>点击上传图片</strong>
+      </label>
+      <div class="preview-strip" id="requestImagePreview"></div>
+      <div class="submit-actions modal-actions">
+        <span class="submit-hint" id="requestSubmitHint"></span>
+        <button class="btn-primary" type="submit">提交</button>
+        <button class="btn btn-secondary" type="button" id="cancelRequest">取消</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal-backdrop" id="eventSignupModal" aria-modal="true" role="dialog" hidden>
+    <form class="modal-card" id="eventSignupForm">
+      <div class="modal-topline">
+        <h2 id="signupModalTitle">活动报名</h2>
+        <button class="modal-close" type="button" id="closeEventSignup" aria-label="关闭">×</button>
+      </div>
+      <p id="signupModalText">填写游戏内名称和备注后提交。</p>
+      <label class="required-label">玩家名称 <span>*</span><input id="signupPlayerName" maxlength="40" placeholder="填写你的游戏内名称"></label>
+      <label>备注<textarea id="signupNote" maxlength="200" placeholder="例如：两人队、晚上 8 点能到、需要队友"></textarea></label>
+      <div class="submit-actions modal-actions">
+        <span class="submit-hint" id="signupSubmitHint"></span>
+        <button class="btn-primary" type="submit">提交报名</button>
+        <button class="btn btn-secondary" type="button" id="cancelEventSignup">取消</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-backdrop image-viewer" id="imageViewer" aria-modal="true" role="dialog" hidden>
+    <div class="image-viewer-card">
+      <button class="modal-close image-viewer-close" type="button" id="closeImageViewer" aria-label="关闭">×</button>
+      <button class="image-viewer-nav prev" type="button" id="imageViewerPrev" aria-label="上一张大图">‹</button>
+      <img id="imageViewerImg" alt="图片预览">
+      <button class="image-viewer-nav next" type="button" id="imageViewerNext" aria-label="下一张大图">›</button>
+      <div class="image-viewer-title" id="imageViewerTitle"></div>
+      <div class="image-viewer-count" id="imageViewerCount"></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="playerGate" aria-modal="true" role="dialog" hidden>
+    <form class="modal-card" id="playerGateForm">
+      <div>
+        <h2>填写游戏内名称</h2>
+        <p>进入 Erp 14 网页前建议登记你的 SCUM 游戏内名称，后台会显示已进入网页的玩家。报名活动时必须填写名称。</p>
+      </div>
+      <label>游戏内名称
+        <input id="playerGameName" minlength="2" maxlength="24" autocomplete="nickname" placeholder="例如：Erp14_Player" />
+      </label>
+      <div class="player-gate-actions">
+        <button class="btn-primary" type="submit">进入网页</button>
+        <button class="btn btn-secondary" type="button" id="playerGateSkip">先看看</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="./js/main.js"></script>
+
+  <!-- 自定义确认弹窗 -->
+  <div class="modal-backdrop" id="confirmModal" hidden>
+    <div class="modal-card confirm-modal">
+      <h3 id="confirmTitle">确认操作</h3>
+      <p id="confirmMessage">确定要执行此操作吗？</p>
+      <div class="confirm-actions">
+        <button class="btn-secondary" id="confirmCancel">取消</button>
+        <button class="btn-danger" id="confirmOk">确定</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
