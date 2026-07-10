@@ -735,7 +735,7 @@ ${renderManagedImageField({
       }, duration);
     }
 
-    async function copyGuideText(value, successMessage, failureMessage) {
+    async function copyHeroText(value, successMessage, failureMessage) {
       const text = String(value || '').trim();
 
       if (!text) {
@@ -2007,18 +2007,10 @@ ${renderManagedImageField({
       joinLink.textContent = serverInfo.joinText || '加入玩家群';
       joinLink.href = serverInfo.joinUrl || '#';
       joinLink.title = serverInfo.joinApplication || '加入玩家群';
-    }
-
-    function renderNewPlayerGuide() {
-      const ip = document.getElementById('guideServerIp');
-      const group = document.getElementById('guideGroupNumber');
-
-      if (ip) {
-        ip.textContent = serverInfo.ip || '暂未配置';
-      }
-
-      if (group) {
-        group.textContent = serverInfo.group || '暂未配置';
+      const groupLink = document.getElementById('heroGroupLink');
+      if (groupLink) {
+        groupLink.href = serverInfo.joinUrl || '#';
+        groupLink.title = serverInfo.joinApplication || '打开 QQ 群加入页面';
       }
     }
 
@@ -3912,7 +3904,6 @@ ${item.text}`);
 
     function renderAll() {
       renderHero();
-      renderNewPlayerGuide();
       renderHeroCarousel();
       renderHomeStats();
       renderHomeFeatures();
@@ -3929,58 +3920,20 @@ ${item.text}`);
       applyContentOverrides();
     }
 
-    document.getElementById('newPlayerGuideSection')?.addEventListener('click', event => {
-      const button = event.target.closest('[data-guide-action]');
-
-      if (!button) {
-        return;
-      }
-
-      const action = button.dataset.guideAction;
-
-      if (action === 'copy-ip') {
-        copyGuideText(
-          serverInfo.ip,
-          '服务器 IP 已复制',
-          '复制失败，请手动复制页面上的服务器 IP'
-        );
-      }
-
-      if (action === 'copy-group') {
-        copyGuideText(
-          serverInfo.group,
-          '群号已复制，请打开 QQ 搜索并申请加入',
-          '复制失败，请手动复制页面上的 QQ 群号'
-        );
-      }
-
-      if (action === 'read-rules') {
-        document.getElementById('homeRulesSection')?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-
-      if (action === 'enter-server') {
-        showToast(
-          '请打开 SCUM，使用已复制的服务器 IP 搜索或直连',
-          'info'
-        );
-      }
-
-      if (action === 'contact-admin') {
-        showToast(
-          '请复制 QQ 群号，进群后联系管理员',
-          'info'
-        );
-      }
-    });
-
     setTheme(localStorage.getItem('erp14-theme') || 'light');
     loadLocalData();
     applyIcons();
     normalizeUpdates();
     renderAll();
+
+    document.querySelector('[data-hero-action="copy-ip"]')?.addEventListener('click', () => {
+      copyHeroText(
+        serverInfo.ip,
+        '服务器 IP 已复制',
+        '复制失败，请手动复制页面上的服务器 IP'
+      );
+    });
+
     setupPlayerGate();
     setupNoticeFloating();
     setupActivityRailScroll();

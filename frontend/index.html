@@ -43,8 +43,26 @@
             <p id="heroDescription">一个面向长期玩家的 SCUM 生存服务器。这里强调公平、合作、探索、基地建设和有节奏的活动，让新手能站稳，老玩家有目标。</p>
             <div class="hero-info">
               <span>服务器编号：<strong id="heroServerNo">Erp 14-A</strong></span>
-              <span>IP 地址：<strong id="heroServerIp">127.0.0.1:7777</strong></span>
-              <span>QQ群：<strong id="heroGroup">123456789</strong></span>
+
+              <button
+                class="hero-info-action"
+                type="button"
+                data-hero-action="copy-ip"
+                aria-label="复制服务器 IP"
+              >
+                IP 地址：<strong id="heroServerIp">127.0.0.1:7777</strong>
+              </button>
+
+              <a
+                class="hero-info-action"
+                id="heroGroupLink"
+                href="https://qm.qq.com/q/mJgyxzi2YM"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="打开 QQ 群加入页面"
+              >
+                QQ群：<strong id="heroGroup">123456789</strong>
+              </a>
             </div>
           </div>
           <div class="hero-dots" id="heroDots" aria-label="首页图片轮播"></div>
@@ -78,63 +96,6 @@
           </aside>
         </div>
       </div>
-
-      <section class="section-block newbie-guide" id="newPlayerGuideSection" aria-labelledby="newPlayerGuideTitle">
-        <div class="section-head newbie-guide-head">
-          <div>
-            <span class="newbie-guide-kicker">新玩家必看</span>
-            <h2 id="newPlayerGuideTitle">5 步加入服务器</h2>
-            <p>照着操作，几分钟即可完成入服准备。</p>
-          </div>
-        </div>
-
-        <ol class="newbie-guide-steps">
-          <li class="card newbie-guide-step">
-            <span class="newbie-guide-number">1</span>
-            <div>
-              <h3>复制服务器 IP</h3>
-              <p>当前地址：<strong id="guideServerIp">127.0.0.1:7777</strong></p>
-            </div>
-            <button class="btn btn-primary" type="button" data-guide-action="copy-ip">复制 IP</button>
-          </li>
-
-          <li class="card newbie-guide-step">
-            <span class="newbie-guide-number">2</span>
-            <div>
-              <h3>加入 QQ 群</h3>
-              <p>群号：<strong id="guideGroupNumber">123456789</strong></p>
-            </div>
-            <button class="btn btn-secondary" type="button" data-guide-action="copy-group">复制群号</button>
-          </li>
-
-          <li class="card newbie-guide-step">
-            <span class="newbie-guide-number">3</span>
-            <div>
-              <h3>阅读规则</h3>
-              <p>入服前先了解服务器注意事项。</p>
-            </div>
-            <button class="btn btn-secondary" type="button" data-guide-action="read-rules">查看规则</button>
-          </li>
-
-          <li class="card newbie-guide-step">
-            <span class="newbie-guide-number">4</span>
-            <div>
-              <h3>进入服务器</h3>
-              <p>打开 SCUM，使用服务器 IP 搜索或直连。</p>
-            </div>
-            <button class="btn btn-secondary" type="button" data-guide-action="enter-server">进入说明</button>
-          </li>
-
-          <li class="card newbie-guide-step">
-            <span class="newbie-guide-number">5</span>
-            <div>
-              <h3>遇到问题</h3>
-              <p>进入 QQ 群联系管理员协助处理。</p>
-            </div>
-            <button class="btn btn-secondary" type="button" data-guide-action="contact-admin">联系管理员</button>
-          </li>
-        </ol>
-      </section>
 
       <div class="grid stats section-block" id="homeStatsSection" data-section="homeStats"></div>
 

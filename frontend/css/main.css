@@ -470,7 +470,8 @@
       margin: 0 0 22px;
     }
 
-    .hero-info span {
+    .hero-info > span,
+    .hero-info-action {
       display: inline-flex;
       align-items: center;
       min-height: 32px;
@@ -480,6 +481,29 @@
       border: 1px solid rgba(255, 255, 255, .22);
       color: rgba(255, 255, 255, .9);
       font-size: 13px;
+    }
+
+    .hero-info-action {
+      appearance: none;
+      font: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .hero-info-action:hover {
+      background: rgba(255, 255, 255, .24);
+      border-color: rgba(255, 255, 255, .42);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .hero-info-action:active {
+      transform: translateY(0);
+    }
+
+    .hero-info-action:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
     }
 
     .actions {
@@ -560,59 +584,6 @@
       gap: 24px;
       width: 100%;
       margin: 20px 0 0;
-    }
-
-    .newbie-guide-kicker {
-      display: inline-block;
-      margin-bottom: 6px;
-      color: var(--brand);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .newbie-guide-steps {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .newbie-guide-step {
-      display: flex;
-      min-width: 0;
-      flex-direction: column;
-      gap: 12px;
-      align-items: flex-start;
-    }
-
-    .newbie-guide-step h3,
-    .newbie-guide-step p {
-      margin: 0;
-    }
-
-    .newbie-guide-step p {
-      margin-top: 6px;
-      color: var(--text-muted);
-      overflow-wrap: anywhere;
-    }
-
-    .newbie-guide-step .btn {
-      width: 100%;
-      margin-top: auto;
-    }
-
-    .newbie-guide-number {
-      display: inline-grid;
-      width: 30px;
-      height: 30px;
-      place-items: center;
-      flex: 0 0 auto;
-      border-radius: 50%;
-      background: var(--brand);
-      color: #fff;
-      font-weight: 700;
     }
 
     .home-activity-stack {
@@ -3725,7 +3696,8 @@
       text-shadow: 0 8px 24px rgba(0,0,0,.34);
     }
 
-    .hero-info span,
+    .hero-info > span,
+    .hero-info-action,
     .eyebrow {
       background: rgba(7, 14, 16, .34);
       border-color: rgba(255,255,255,.30);
@@ -4439,20 +4411,7 @@
       /* 下拉菜单选项 */
       select option { padding: 8px 12px; }
 
-      .newbie-guide-steps {
-        grid-template-columns: 1fr;
-      }
-
-      .newbie-guide-step {
-        display: grid;
-        grid-template-columns: 36px minmax(0, 1fr);
-        align-items: start;
-      }
-
-      .newbie-guide-step .btn {
-        grid-column: 2;
-        width: 100%;
-      }
+      .hero-info-action { min-height: 44px; }
     }
 
     /* 横屏适配 */
@@ -4460,7 +4419,10 @@
       .hero { min-height: 200px; }
       .hero h1 { font-size: 24px; }
       .hero p { font-size: 14px; }
-      .hero-info span { font-size: 12px; }
+      .hero-info > span,
+      .hero-info-action {
+        font-size: 12px;
+      }
       .topbar { height: 48px; }
     }
 
@@ -4481,7 +4443,8 @@
     /* Hero */
     [data-theme="dark"] .hero h1 { color: var(--text-100); }
     [data-theme="dark"] .hero p { color: var(--text-300); }
-    [data-theme="dark"] .hero-info span { color: var(--text-400); }
+    [data-theme="dark"] .hero-info > span,
+    [data-theme="dark"] .hero-info-action { color: var(--text-400); }
 
     /* 区块标题 */
     [data-theme="dark"] .section-head h2 { color: var(--text-200); }
