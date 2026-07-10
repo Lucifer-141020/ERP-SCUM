@@ -485,7 +485,6 @@
 
     .hero-info-action {
       appearance: none;
-      font: inherit;
       text-decoration: none;
       cursor: pointer;
     }
