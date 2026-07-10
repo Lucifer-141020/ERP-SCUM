@@ -21,6 +21,11 @@ var html = fs.readFileSync(
   'utf8'
 );
 
+var frontendHtml = fs.readFileSync(
+  path.join(__dirname, '..', 'frontend', 'index.html'),
+  'utf8'
+);
+
 var tests = [];
 var passed = 0;
 var failed = 0;
@@ -154,52 +159,52 @@ test('新增保存函数 saveHomeHeroImages 存在', function() {
   }
 });
 
-// ====== 新手入服引导卡结构测试（Task 1） ======
+// ====== 新手入服引导卡结构测试（Task 1，检查 frontend/index.html） ======
 
 test('首页应包含新手入服引导区', function() {
-  if (html.indexOf('id="newPlayerGuideSection"') === -1) {
+  if (frontendHtml.indexOf('id="newPlayerGuideSection"') === -1) {
     throw new Error('首页应包含新手入服引导区');
   }
 });
 
 test('引导区应包含动态服务器 IP', function() {
-  if (html.indexOf('id="guideServerIp"') === -1) {
+  if (frontendHtml.indexOf('id="guideServerIp"') === -1) {
     throw new Error('引导区应包含动态服务器 IP');
   }
 });
 
 test('引导区应包含动态 QQ 群号', function() {
-  if (html.indexOf('id="guideGroupNumber"') === -1) {
+  if (frontendHtml.indexOf('id="guideGroupNumber"') === -1) {
     throw new Error('引导区应包含动态 QQ 群号');
   }
 });
 
 test('引导区应包含 copy-ip 操作', function() {
-  if (html.indexOf('data-guide-action="copy-ip"') === -1) {
+  if (frontendHtml.indexOf('data-guide-action="copy-ip"') === -1) {
     throw new Error('引导区应包含 copy-ip 操作');
   }
 });
 
 test('引导区应包含 copy-group 操作', function() {
-  if (html.indexOf('data-guide-action="copy-group"') === -1) {
+  if (frontendHtml.indexOf('data-guide-action="copy-group"') === -1) {
     throw new Error('引导区应包含 copy-group 操作');
   }
 });
 
 test('引导区应包含 read-rules 操作', function() {
-  if (html.indexOf('data-guide-action="read-rules"') === -1) {
+  if (frontendHtml.indexOf('data-guide-action="read-rules"') === -1) {
     throw new Error('引导区应包含 read-rules 操作');
   }
 });
 
 test('引导区应包含 enter-server 操作', function() {
-  if (html.indexOf('data-guide-action="enter-server"') === -1) {
+  if (frontendHtml.indexOf('data-guide-action="enter-server"') === -1) {
     throw new Error('引导区应包含 enter-server 操作');
   }
 });
 
 test('引导区应包含 contact-admin 操作', function() {
-  if (html.indexOf('data-guide-action="contact-admin"') === -1) {
+  if (frontendHtml.indexOf('data-guide-action="contact-admin"') === -1) {
     throw new Error('引导区应包含 contact-admin 操作');
   }
 });
