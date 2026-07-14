@@ -514,6 +514,50 @@ test('红灯-44：signupEnabled=false 及缺失时 renderUpdates 不渲染 data-
   assert.ok(!h2.includes('data-countdown'), 'signupEnabled 缺失仍 renderUpdates 渲染倒计时');
 });
 
+// ===== 阶段2浏览器验收暴露的缺陷（Checkpoint 1） =====
+
+// 测试 45：拆分源码中 FALLBACK_MAP 未定义时，fetchWithFallback 必须抛出原始请求错误，不得变 ReferenceError
+// 注：fetchWithFallback 有默认参数 options={}，extractFunction 不兼容，故内联复现。
+test('红灯-45：FALLBACK_MAP 未定义时 fetchWithFallback 抛出原始请求错误', async () => {
+  async function fetchJson(url, opts) { throw new Error('HTTP 500: 后端服务不可用'); }
+  async function fetchWithFallback(url, options) {
+    try {
+      return await fetchJson(url, options);
+    } catch (err) {
+      const fallbackUrl = FALLBACK_MAP[url];
+      if (!fallbackUrl) throw err;
+      console.warn('[降级] ' + url + ' -> ' + fallbackUrl + ': ' + err.message);
+      return await fetchJson(fallbackUrl, options);
+    }
+  }
+  try {
+    await fetchWithFallback('/api/events/test');
+    throw new Error('fetchWithFallback 应抛出而非返回');
+  } catch (err) {
+    assert.ok(
+      err.message.includes('HTTP 500'),
+      '原始错误信息被覆盖，实际：' + err.message
+    );
+    assert.ok(
+      !err.message.includes('FALLBACK_MAP'),
+      '错误被 FALLBACK_MAP 未定义的 ReferenceError 覆盖：' + err.message
+    );
+  }
+});
+
+// 测试 46：signupEnabled=false 的已发布活动，即使截止仍在未来，首页报名区也不得显示倒计时
+test('红灯-46：signupEnabled=false 时首页报名区不渲染 data-countdown', () => {
+  const html = buildRenderSandbox({
+    updates: [{ id: 40, title: '关闭报名活动', activityType: 'signup', published: true, signupEnabled: false, signupDeadline: future48h, status: '' }]
+  }).renderActivitySignups();
+  assert.ok(html.includes('关闭报名活动'), 'signupEnabled=false 活动卡片应展示');
+  assert.ok(!html.includes('data-open-signup'), 'signupEnabled=false 不应出现报名按钮');
+  assert.ok(
+    !html.includes('data-countdown'),
+    'signupEnabled=false 仍渲染 data-countdown（缺陷：countdown 条件只检查状态，未检查 isSignupVisible）'
+  );
+});
+
 (async () => {
   await Promise.all(pendingTests);
   console.log('\n通过 ' + passed + ' / ' + (passed + failed));
