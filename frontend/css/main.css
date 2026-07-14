@@ -4420,6 +4420,15 @@
       .hero-info-action { min-height: 44px; }
     }
 
+    /* 横屏触控设备 */
+    @media (max-height: 450px) and (pointer: coarse) {
+      .menu-btn,
+      .icon-btn {
+        width: 44px;
+        height: 44px;
+      }
+    }
+
     /* 横屏适配 */
     @media (max-width: 768px) and (orientation: landscape) {
       .hero { min-height: 200px; }
