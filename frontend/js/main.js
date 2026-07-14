@@ -929,7 +929,7 @@ ${renderManagedImageField({
       try {
         return await fetchJson(url, options);
       } catch (err) {
-        const fallbackUrl = FALLBACK_MAP[url];
+        const fallbackUrl = typeof FALLBACK_MAP !== 'undefined' ? FALLBACK_MAP[url] : undefined;
         if (!fallbackUrl) throw err;
         console.warn(`[降级] ${url} 失败 -> ${fallbackUrl}: ${err.message}`);
         return await fetchJson(fallbackUrl, options);
@@ -2201,7 +2201,7 @@ ${renderManagedImageField({
         let deadlineHtml = '';
         if (state === '报名已截止') {
           deadlineHtml = `<span class="signup-deadline">报名已截止</span>`;
-        } else if (Number.isFinite(deadline) && signupCanStates[state]) {
+        } else if (canSignup && Number.isFinite(deadline)) {
           const remaining = deadline - Date.now();
           const isClosing = state === '即将截止';
           const prefix = isClosing ? '即将截止：' : '报名截止：';
