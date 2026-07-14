@@ -244,10 +244,13 @@ test('getSignupTimeState 不引用 rewardDate / updatedAt', () => {
   assert.ok(fn.indexOf('rewardDate') === -1, 'getSignupTimeState 引用了 rewardDate');
   assert.ok(fn.indexOf('updatedAt') === -1, 'getSignupTimeState 引用了 updatedAt');
 });
-test('renderActivitySignups 列出 published+signup（含已颁奖/已结束/已截止），不按 results 过滤、不调用 isSignupVisible', () => {
+test('renderActivitySignups 列出 published+signup（含已颁奖/已结束/已截止），不按 results 过滤、列表筛选不调用 isSignupVisible', () => {
   const fn = extractFunction(MAIN_JS, 'renderActivitySignups');
   assert.ok(fn.indexOf("inferActivityType(item) === 'signup'") !== -1, '未以 signup 类型筛选列表');
-  assert.ok(fn.indexOf('isSignupVisible') === -1, '列表仍用 isSignupVisible 过滤（会隐藏已截止/已颁奖）');
+  // 只在列表筛选（.filter）阶段禁止 isSignupVisible（否则会隐藏已截止/已颁奖卡片）；
+  // 按钮判断和倒计时中调用 isSignupVisible 是正确且必要的。
+  const filterLine = fn.split('\n').find(l => l.includes('.filter'));
+  assert.ok(filterLine && filterLine.indexOf('isSignupVisible') === -1, '列表筛选仍用 isSignupVisible，会隐藏已截止/已颁奖');
   assert.ok(fn.indexOf('item.results') === -1, '列表按 item.results 过滤会误隐藏已颁奖项');
 });
 test('全文件不存在按 rewardDate / updatedAt 自动隐藏已颁奖的正向逻辑', () => {
@@ -446,8 +449,8 @@ test('红灯-40：getActivityStatusBadge 必须接入统一时间判断', () => 
 
 // 测试 41：renderUpdates 对可报名活动渲染 data-countdown
 test('红灯-41：renderUpdates 对可报名活动渲染 data-countdown', () => {
-  const h1 = buildRenderSandbox({ updates: [{ id: 15, title: '活动A', activityType: 'signup', signupDeadline: future48h }] }).renderUpdates();
-  const h2 = buildRenderSandbox({ updates: [{ id: 16, title: '活动B', activityType: 'signup', signupDeadline: soon }] }).renderUpdates();
+  const h1 = buildRenderSandbox({ updates: [{ id: 15, title: '活动A', activityType: 'signup', signupEnabled: true, signupDeadline: future48h }] }).renderUpdates();
+  const h2 = buildRenderSandbox({ updates: [{ id: 16, title: '活动B', activityType: 'signup', signupEnabled: true, signupDeadline: soon }] }).renderUpdates();
   assert.ok(h1.includes('data-countdown'), '>24h 活动卡未渲染 data-countdown（缺陷：renderUpdates 未接入倒计时）');
   assert.ok(h2.includes('data-countdown'), '<=24h 活动卡未渲染 data-countdown');
 });
