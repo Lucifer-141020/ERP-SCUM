@@ -299,6 +299,11 @@ function buildRenderSandbox(seed) {
       }
     };
     const isFixedActivityVisible = () => false;
+    const isSignupVisible = (item) => {
+      const status = (item.status || '').trim();
+      if (status === '已结束' || status === '结束') return false;
+      return item.published !== false && item.signupEnabled === true && item.signupDeadline && new Date(item.signupDeadline).getTime() > Date.now();
+    };
     const buildActivityFields = () => '';
     const applyIcons = () => {};
     const startSignupCountdownTimer = () => {};
@@ -477,6 +482,33 @@ test('红灯-42：跨边界后不应每秒重复重绘活动区', () => {
     renderCount, 1,
     '跨入即将截止后每秒重复重绘活动区（缺陷：updateSignupCountdownNodes 使用临时 dataset.closing，重绘后标记丢失，导致持续重复重绘）'
   );
+});
+
+// ===== 阶段1返工：统一报名可见性判断 =====
+
+// 测试 43：signupEnabled 缺失时首页不显示报名入口
+test('红灯-43：signupEnabled 缺失时首页不显示 data-open-signup 或「立即报名」', () => {
+  const html = buildRenderSandbox({
+    updates: [{ id: 30, title: '无标记活动', activityType: 'signup', published: true, signupDeadline: future48h, status: '' }]
+  }).renderActivitySignups();
+  assert.ok(!html.includes('data-open-signup'), 'signupEnabled 缺失仍渲染 data-open-signup（缺陷：未使用 isSignupVisible 的统一判断）');
+  assert.ok(!html.includes('立即报名'), 'signupEnabled 缺失仍显示「立即报名」文案');
+  // 但仍应显示活动卡片（卡片展示规则不变）
+  assert.ok(html.includes('无标记活动'), 'signupEnabled 缺失不应隐藏活动卡片');
+});
+
+// 测试 44：signupEnabled=false 以及缺失时 renderUpdates 不渲染倒计时
+test('红灯-44：signupEnabled=false 及缺失时 renderUpdates 不渲染 data-countdown', () => {
+  // case A: signupEnabled=false
+  const h1 = buildRenderSandbox({
+    updates: [{ id: 31, title: '关闭报名', activityType: 'signup', published: true, signupEnabled: false, signupDeadline: future48h, status: '' }]
+  }).renderUpdates();
+  assert.ok(!h1.includes('data-countdown'), 'signupEnabled=false 仍 renderUpdates 渲染倒计时');
+  // case B: signupEnabled 缺失
+  const h2 = buildRenderSandbox({
+    updates: [{ id: 32, title: '缺标记活动', activityType: 'signup', published: true, signupDeadline: future48h, status: '' }]
+  }).renderUpdates();
+  assert.ok(!h2.includes('data-countdown'), 'signupEnabled 缺失仍 renderUpdates 渲染倒计时');
 });
 
 (async () => {
