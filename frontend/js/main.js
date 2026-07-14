@@ -2168,7 +2168,6 @@ ${renderManagedImageField({
       const signupBox = document.getElementById('activitySignupList');
       if (!signupBox) return;
       const fixedVisible = updates.map((item, index) => ({ item, index })).filter(({ item }) => isFixedActivityVisible(item));
-      const signupVisible = updates.map((item, index) => ({ item, index, id: getUpdateId(item, index) })).filter(({ item }) => isSignupVisible(item));
 
       if (fixedBox) {
         const fixedHtml = fixedVisible.length ? fixedVisible.map(({ item }) => `
@@ -2180,16 +2179,55 @@ ${renderManagedImageField({
         fixedBox.innerHTML = fixedHtml;
       }
 
-      const signupHtml = signupVisible.length ? signupVisible.map(({ item, index, id }) => `
+      // 列出全部已发布、signup 类型活动（含已截止/已结束/已颁奖），由状态决定按钮。
+      // 不根据 updatedAt / rewardDate / results 生成时间自动隐藏已颁奖活动。
+      const signupItems = updates
+        .map((item, index) => ({ item, index, id: getUpdateId(item, index) }))
+        .filter(({ item }) => item.published !== false && inferActivityType(item) === 'signup');
+
+      const signupStateClassMap = {
+        '报名中': 'signup', '进行中': 'ongoing', '已结束': 'ended',
+        '已颁奖': 'rewarded', '即将截止': 'closing', '报名已截止': 'closed', '常驻': 'fixed'
+      };
+      const signupCanStates = { '报名中': true, '进行中': true, '即将截止': true };
+
+      const signupHtml = signupItems.length ? signupItems.map(({ item, index, id }) => {
+        const state = getSignupTimeState(item, Date.now());
+        const stateClass = signupStateClassMap[state] || 'signup';
+        const canSignup = Boolean(signupCanStates[state]) && item.signupEnabled !== false;
+        const signedUp = canSignup && isLocalPlayerSignedUp(id, activePlayerName);
+
+        const deadline = item.signupDeadline ? new Date(item.signupDeadline).getTime() : NaN;
+        let deadlineHtml = '';
+        if (state === '报名已截止') {
+          deadlineHtml = `<span class="signup-deadline">报名已截止</span>`;
+        } else if (Number.isFinite(deadline) && signupCanStates[state]) {
+          const remaining = deadline - Date.now();
+          const isClosing = state === '即将截止';
+          const prefix = isClosing ? '即将截止：' : '报名截止：';
+          const text = prefix + formatSignupCountdown(remaining);
+          deadlineHtml = `<span class="signup-deadline" data-countdown="${escapeAttr(item.signupDeadline)}" data-countdown-state="${isClosing ? 'closing' : 'open'}">${escapeHtml(text)}</span>`;
+        }
+
+        let ctaHtml = '';
+        if (signedUp) {
+          ctaHtml = `<span class="signup-cta signed" aria-disabled="true">玩家已报名</span>`;
+        } else if (canSignup) {
+          ctaHtml = `<span class="signup-cta" data-open-signup="${index}" role="button" tabindex="0">立即报名 →</span>`;
+        }
+
+        return `
         <article class="side-panel-item signup-item">
-          <span class="activity-badge activity-badge-signup">可报名</span>
+          <span class="update-status-badge ${stateClass}">${state}</span>
           <strong>${escapeHtml(item.title)}</strong>
           ${buildActivityFields(item, true)}
-          <span class="signup-row"><span class="signup-count">已报 ${eventSignupCounts[id] || 0} 人</span><span class="signup-deadline">报名截止 ${escapeHtml(formatDateText(item.signupDeadline))}</span><span class="signup-cta" data-open-signup="${index}" role="button" tabindex="0">立即报名 →</span></span>
-        </article>`).join('') : '<div class="signup-empty">当前没有开放报名的临时活动。</div>';
+          <span class="signup-row"><span class="signup-count">已报 ${eventSignupCounts[id] || 0} 人</span>${deadlineHtml}${ctaHtml}</span>
+        </article>`;
+      }).join('') : '<div class="signup-empty">当前没有开放报名的临时活动。</div>';
       signupBox.innerHTML = signupHtml;
       if (fixedBox) applyIcons(fixedBox);
       applyIcons(signupBox);
+      startSignupCountdownTimer();
     }
 
     function setupActivityRailScroll() {
@@ -2234,13 +2272,114 @@ ${renderManagedImageField({
     }
 
     function getActivityStatusBadge(item) {
+      const badgeMap = {
+        '常驻': 'fixed', '已颁奖': 'rewarded', '已结束': 'ended',
+        '报名已截止': 'closed', '即将截止': 'closing', '进行中': 'ongoing', '报名中': 'signup'
+      };
+      const state = getSignupTimeState(item, Date.now());
+      const cls = badgeMap[state] || 'signup';
+      return `<span class="update-status-badge ${cls}">${state}</span>`;
+    }
+
+    // ===== 活动报名状态与本地记录（Task 0.2） =====
+    const EVENT_SIGNUP_STORE_KEY = 'erp14-event-signups';
+    const DAY_MS = 86400000;
+    const HOUR_MS = 3600000;
+    const MIN_MS = 60000;
+    const SEC_MS = 1000;
+
+    // 纯函数：返回 7 种状态之一。优先级严格按规格执行。
+    function getSignupTimeState(item, now = Date.now()) {
       const activityType = inferActivityType(item);
-      if (activityType === 'fixed') return '<span class="update-status-badge fixed">常驻</span>';
+      if (activityType === 'fixed') return '常驻';
       const status = (item.status || '').trim();
-      if (item.results && item.results.length > 0) return '<span class="update-status-badge rewarded">已颁奖</span>';
-      if (status.includes('结束') || status.includes('已结束')) return '<span class="update-status-badge ended">已结束</span>';
-      if (status.includes('进行') || status.includes('开始')) return '<span class="update-status-badge ongoing">进行中</span>';
-      return '<span class="update-status-badge signup">报名中</span>';
+      const hasResults = Array.isArray(item.results) && item.results.length > 0;
+      if (hasResults) return '已颁奖';
+      if (status.includes('结束') || status.includes('已结束')) return '已结束';
+      const endAt = item.eventEndAt ? new Date(item.eventEndAt).getTime() : NaN;
+      if (Number.isFinite(endAt) && endAt < now) return '已结束';
+      const deadline = item.signupDeadline ? new Date(item.signupDeadline).getTime() : NaN;
+      if (Number.isFinite(deadline)) {
+        if (deadline < now) return '报名已截止';
+        if (deadline - now <= DAY_MS) return '即将截止';
+      }
+      if (status.includes('进行') || status.includes('开始')) return '进行中';
+      return '报名中';
+    }
+
+    // 纯函数：剩余毫秒 → 文案。>24h 用「X天 X小时」；≤24h 用 HH:MM:SS。
+    function formatSignupCountdown(remainingMs) {
+      if (!Number.isFinite(remainingMs) || remainingMs <= 0) return '';
+      if (remainingMs > DAY_MS) {
+        const days = Math.floor(remainingMs / DAY_MS);
+        const hours = Math.floor((remainingMs % DAY_MS) / HOUR_MS);
+        return days === 0 ? `还剩 ${hours}小时` : `还剩 ${days}天 ${hours}小时`;
+      }
+      const HH = String(Math.floor(remainingMs / HOUR_MS)).padStart(2, '0');
+      const MM = String(Math.floor((remainingMs % HOUR_MS) / MIN_MS)).padStart(2, '0');
+      const SS = String(Math.floor((remainingMs % MIN_MS) / SEC_MS)).padStart(2, '0');
+      return `还剩 ${HH}:${MM}:${SS}`;
+    }
+
+    // 安全读取本地报名记录；任何异常返回空对象，不让页面报错。
+    function readLocalEventSignups() {
+      try {
+        const raw = localStorage.getItem(EVENT_SIGNUP_STORE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // 仅报名成功后调用；localStorage 异常时静默失败，不影响主流程。
+    function saveLocalEventSignup(eventId, playerName) {
+      try {
+        const id = String(eventId);
+        const records = readLocalEventSignups();
+        records[id] = { playerName: String(playerName).trim(), recordedAt: new Date().toISOString() };
+        localStorage.setItem(EVENT_SIGNUP_STORE_KEY, JSON.stringify(records));
+      } catch (e) {
+        // localStorage 不可用时吞掉，不影响主流程
+      }
+    }
+
+    // 当前浏览器、当前玩家是否已成功报名（基于本地记录）。
+    function isLocalPlayerSignedUp(eventId, playerName) {
+      if (!playerName) return false;
+      const records = readLocalEventSignups();
+      const rec = records[String(eventId)];
+      if (!rec || !rec.playerName) return false;
+      return rec.playerName.trim().toLowerCase() === String(playerName).trim().toLowerCase();
+    }
+
+    // 报名倒计时：全局唯一定时器，每秒仅刷新 [data-countdown] 文本；边界跨越时重绘一次。
+    let signupCountdownTimer = null;
+    function startSignupCountdownTimer() {
+      if (signupCountdownTimer) return;
+      signupCountdownTimer = setInterval(updateSignupCountdownNodes, SEC_MS);
+    }
+
+    function updateSignupCountdownNodes() {
+      let needRerender = false;
+      document.querySelectorAll('[data-countdown]').forEach(node => {
+        const ts = new Date(node.getAttribute('data-countdown')).getTime();
+        if (!Number.isFinite(ts)) return;
+        const remaining = ts - Date.now();
+        const newState = remaining <= 0 ? 'ended' : (remaining <= DAY_MS ? 'closing' : 'open');
+        const oldState = node.dataset.countdownState || node._cdState;
+        if (newState !== oldState) {
+          node._cdState = newState;
+          needRerender = true;
+          return;
+        }
+        node.textContent = (newState === 'closing' ? '即将截止：' : '报名截止：') + formatSignupCountdown(remaining);
+      });
+      if (needRerender) {
+        renderActivitySignups();
+        if (typeof renderUpdates === 'function') renderUpdates();
+      }
     }
 
     function renderResultsTable(item) {
@@ -2257,6 +2396,19 @@ ${renderManagedImageField({
     function renderUpdates() {
       const html = updates.map(item => {
         const isSignup = inferActivityType(item) === 'signup';
+        let countdownHtml = '';
+        if (isSignup && item.signupDeadline) {
+          const state = getSignupTimeState(item, Date.now());
+          const deadline = new Date(item.signupDeadline).getTime();
+          const renderStates = { '报名中': true, '进行中': true, '即将截止': true };
+          if (Number.isFinite(deadline) && renderStates[state]) {
+            const remaining = deadline - Date.now();
+            const isClosing = state === '即将截止';
+            const prefix = isClosing ? '即将截止：' : '报名截止：';
+            const text = prefix + formatSignupCountdown(remaining);
+            countdownHtml = `<span class="signup-countdown" data-countdown="${escapeAttr(item.signupDeadline)}" data-countdown-state="${isClosing ? 'closing' : 'open'}">${escapeHtml(text)}</span>`;
+          }
+        }
         return `
         <article class="update-card card">
           <div class="update-card-head">
@@ -2264,12 +2416,14 @@ ${renderManagedImageField({
             ${getActivityStatusBadge(item)}
           </div>
           <div class="update-card-fields">${buildActivityFields(item, isSignup)}</div>
+          ${countdownHtml}
           ${renderResultsTable(item)}
         </article>`;
       }).join('');
       const box = document.getElementById('updateList');
       box.innerHTML = html;
       applyIcons(box);
+      startSignupCountdownTimer();
     }
 
     async function loadEventSignupCounts() {
@@ -2366,15 +2520,20 @@ ${renderManagedImageField({
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ playerName, note })
         });
+        // fetchWithFallback 成功返回（未抛异常）即视为报名成功；data 为解包后的对象，无 success 字段。
         eventSignupCounts[activeSignupEventId] = data.count || ((eventSignupCounts[activeSignupEventId] || 0) + 1);
+        // 在 closeEventSignup 清空 activeSignupEventId 之前保存活动标题
+        const signedItem = updates.find(u => getUpdateId(u) === activeSignupEventId);
+        const signedTitle = signedItem ? signedItem.title : '';
         if (playerName) {
           activePlayerName = playerName;
           localStorage.setItem('erp14-player-name', playerName);
+          saveLocalEventSignup(activeSignupEventId, playerName);
         }
         closeEventSignup();
         renderActivitySignups();
         loadAdminEventSignups();
-        showToast('报名已提交', 'success');
+        showToast(`报名成功！你已报名「${signedTitle}」`, 'success');
       } catch (error) {
         document.getElementById('signupSubmitHint').textContent = error.message && error.message !== 'SIGNUP_FAILED' ? error.message : '报名提交失败，请确认后端服务已启动';
       }

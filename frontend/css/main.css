@@ -1911,6 +1911,16 @@
     .update-status-badge.ended { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
     .update-status-badge.rewarded { background: color-mix(in srgb, #534AB7 15%, transparent); color: #534AB7; }
     .update-status-badge.fixed { background: var(--brand-soft); color: var(--brand-dark); }
+    .update-status-badge.closing { background: color-mix(in srgb, var(--accent-warm) 20%, transparent); color: var(--accent-warm); }
+    .update-status-badge.closed { background: color-mix(in srgb, var(--text-500) 14%, transparent); color: var(--text-500); }
+
+    .signup-cta.signed {
+      background: var(--brand-soft);
+      color: var(--brand-dark);
+      cursor: default;
+      opacity: 0.85;
+    }
+    .signup-cta.signed:hover { background: var(--brand-soft); }
 
     .update-card-fields {
       display: grid;
