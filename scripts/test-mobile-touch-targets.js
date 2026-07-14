@@ -91,6 +91,53 @@ var mobileCss =
       )
     : '';
 
+// 查找同时包含 max-height: 450px 和 pointer: coarse 的横屏触控媒体查询
+var landscapeTouchCss = '';
+var searchPos = 0;
+
+while (searchPos < css.length) {
+  var mediaPos = css.indexOf('@media', searchPos);
+
+  if (mediaPos === -1) {
+    break;
+  }
+
+  var openBrace = css.indexOf('{', mediaPos);
+
+  if (openBrace === -1) {
+    break;
+  }
+
+  var condition = css.substring(mediaPos, openBrace);
+  var hasMaxHeight =
+    /max-height\s*:\s*450px/i.test(condition);
+  var hasPointerCoarse =
+    /pointer\s*:\s*coarse/i.test(condition);
+
+  if (hasMaxHeight && hasPointerCoarse) {
+    var depth = 1;
+    var closeIdx = openBrace + 1;
+
+    while (depth > 0 && closeIdx < css.length) {
+      if (css[closeIdx] === '{') {
+        depth += 1;
+      } else if (css[closeIdx] === '}') {
+        depth -= 1;
+      }
+
+      closeIdx += 1;
+    }
+
+    landscapeTouchCss = css.substring(
+      openBrace,
+      closeIdx
+    );
+    break;
+  }
+
+  searchPos = openBrace + 1;
+}
+
 test(
   '存在手机端响应式样式区',
   function() {
@@ -142,6 +189,47 @@ test(
     ) {
       throw new Error(
         '桌面端38px按钮基础规格丢失'
+      );
+    }
+  }
+);
+
+test(
+  '存在横屏触控设备响应式样式区',
+  function() {
+    if (!landscapeTouchCss) {
+      throw new Error(
+        '找不到同时包含 max-height: 450px 和 pointer: coarse 的横屏触控媒体查询'
+      );
+    }
+  }
+);
+
+test(
+  '横屏触控设备菜单和主题按钮宽度为44px',
+  function() {
+    if (
+      !/\.menu-btn\s*,\s*\.icon-btn\s*\{[\s\S]*?width\s*:\s*44px\s*;/.test(
+        landscapeTouchCss
+      )
+    ) {
+      throw new Error(
+        '横屏触控设备 .menu-btn 和 .icon-btn 尚未设置 width: 44px'
+      );
+    }
+  }
+);
+
+test(
+  '横屏触控设备菜单和主题按钮高度为44px',
+  function() {
+    if (
+      !/\.menu-btn\s*,\s*\.icon-btn\s*\{[\s\S]*?height\s*:\s*44px\s*;/.test(
+        landscapeTouchCss
+      )
+    ) {
+      throw new Error(
+        '横屏触控设备 .menu-btn 和 .icon-btn 尚未设置 height: 44px'
       );
     }
   }
