@@ -2194,7 +2194,7 @@ ${renderManagedImageField({
       const signupHtml = signupItems.length ? signupItems.map(({ item, index, id }) => {
         const state = getSignupTimeState(item, Date.now());
         const stateClass = signupStateClassMap[state] || 'signup';
-        const canSignup = Boolean(signupCanStates[state]) && item.signupEnabled !== false;
+        const canSignup = isSignupVisible(item) && signupCanStates[state];
         const signedUp = canSignup && isLocalPlayerSignedUp(id, activePlayerName);
 
         const deadline = item.signupDeadline ? new Date(item.signupDeadline).getTime() : NaN;
@@ -2397,9 +2397,9 @@ ${renderManagedImageField({
       const html = updates.map(item => {
         const isSignup = inferActivityType(item) === 'signup';
         let countdownHtml = '';
-        if (isSignup && item.signupDeadline) {
+        if (isSignupVisible(item)) {
           const state = getSignupTimeState(item, Date.now());
-          const deadline = new Date(item.signupDeadline).getTime();
+          const deadline = item.signupDeadline ? new Date(item.signupDeadline).getTime() : NaN;
           const renderStates = { '报名中': true, '进行中': true, '即将截止': true };
           if (Number.isFinite(deadline) && renderStates[state]) {
             const remaining = deadline - Date.now();
