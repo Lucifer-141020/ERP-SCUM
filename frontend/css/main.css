@@ -4407,6 +4407,13 @@
       .btn + .btn { margin-left: 8px; }
       .tag-row { gap: 8px; }
 
+      /* 头部按钮触控尺寸 */
+      .menu-btn,
+      .icon-btn {
+        width: 44px;
+        height: 44px;
+      }
+
       /* 下拉菜单选项 */
       select option { padding: 8px 12px; }
 
