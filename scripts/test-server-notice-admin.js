@@ -98,12 +98,12 @@ function buildNoticeSandbox(opts) {
       _id: id, value: '', textContent: '', innerHTML: '', hidden: false, disabled: false, checked: false,
       tagName: 'DIV',
       classList: { _classes: {}, add: function(c){this._classes[c]=true;}, remove: function(c){delete this._classes[c];}, contains: function(c){return !!this._classes[c];} },
-      _attrs: {},
+      _attrs: {}, children: [],
       setAttribute: function(k,v){ this._attrs[k] = String(v); },
       getAttribute: function(k){ return this._attrs[k] || null; },
       addEventListener: function(ev, fn){ state.domCalls.eventListeners.push({id:id, event:ev, fn:fn}); },
-      appendChild: function(child){ state.domCalls.appendChild++; return child; },
-      replaceChildren: function(){},
+      appendChild: function(child){ state.domCalls.appendChild++; this.children.push(child); return child; },
+      replaceChildren: function(){ this.children = []; },
       insertAdjacentHTML: function(){ state.domCalls.insertAdjacentHtmlCalls++; },
       removeEventListener: function(){},
       style: {},
@@ -716,13 +716,36 @@ test('js', 'J39. 保存期间阻止重复请求', async function() {
   await p1;
   assert.ok(sb.els.saveServerNotice && sb.els.saveServerNotice.disabled === false, '保存完成后按钮未恢复');
 });
-test('js', 'J40. applyFullBackendConfig 更新通知并回填表单', async function() {
+test('js', 'J40. applyFullBackendConfig 完整断言链', async function() {
   var sb = buildNoticeSandbox();
-  if (!sb.fns.fnAvailable.applyFullBackendConfig) throw new Error('applyFullBackendConfig 不存在');
-  if (!sb.fns.fnAvailable.applyPublicBackendConfig) throw new Error('applyPublicBackendConfig 不存在');
-  sb.fns.applyFullBackendConfig({ server_notice: { enabled:true, title:'后端通知', lines:['x'], version:'v9' } });
+  assert.ok(sb.fns.applyFullBackendConfig, 'applyFullBackendConfig 不存在');
+  var config = { server_notice: { enabled: true, title: '后台通知', lines: ['第一条', '第二条'], version: 'v40' } };
+  sb.fns.applyFullBackendConfig(config);
+  // 1. serverNotice 存在
   var sn = sb.getServerNotice();
-  assert.ok(sn && sn.title === '后端通知', 'applyFullBackendConfig 未更新 serverNotice');
+  assert.ok(sn, 'serverNotice 不存在');
+  // 2. enabled
+  assert.strictEqual(sn.enabled, true, 'enabled !== true');
+  // 3. title
+  assert.strictEqual(sn.title, '后台通知', 'title 不匹配');
+  // 4–7. lines
+  assert.ok(Array.isArray(sn.lines), 'lines 非数组');
+  assert.strictEqual(sn.lines.length, 2, 'lines 长度不为 2');
+  assert.strictEqual(sn.lines[0], '第一条', 'lines[0] 不匹配');
+  assert.strictEqual(sn.lines[1], '第二条', 'lines[1] 不匹配');
+  // 8. version
+  assert.strictEqual(sn.version, 'v40', 'version 不匹配');
+  // 9. #noticeTitle.textContent
+  assert.strictEqual(sb.els.noticeTitle.textContent, '后台通知', 'noticeTitle 未更新');
+  // 10–11. #noticeLines children
+  assert.ok(sb.els.noticeLines.children.length >= 1, 'noticeLines 无 children');
+  // 12–14. 表单回填
+  assert.strictEqual(sb.els.editNoticeEnabled.checked, true, 'editNoticeEnabled 未回填');
+  assert.strictEqual(sb.els.editNoticeTitle.value, '后台通知', 'editNoticeTitle 未回填');
+  assert.strictEqual(sb.els.editNoticeLines.value, '第一条\n第二条', 'editNoticeLines 未回填');
+  // 15. 前台未被 hidden
+  assert.ok(sb.els.noticeFloating.hidden !== true, '通知面板被隐藏');
+  // 16. 无 ReferenceError（能执行到此处即证明）
 });
 
 // ===========================================================================
