@@ -4101,7 +4101,7 @@ ${item.text}`);
           authHeaders['Authorization'] = 'Bearer ' + adminToken;
         }
         authHeaders['Content-Type'] = 'application/json';
-        var response = await fetch(window.ERP14_API_BASE_URL ? window.ERP14_API_BASE_URL.replace(/\/$/, '') + '/api/admin/config' : '/api/admin/config', {
+        var response = await fetch(backendUrl('/api/admin/config'), {
           method: 'PUT',
           headers: authHeaders,
           body: JSON.stringify({ key: 'server_notice', value: nextNotice })
@@ -4122,8 +4122,10 @@ ${item.text}`);
           if (hintEl) hintEl.textContent = errMsg;
           if (typeof showToast === 'function') showToast(errMsg, 'error');
         }
-      } catch (e) {
-        var errMsg = '服务器通知保存失败';
+      } catch (error) {
+        var errMsg = error && typeof error.message === 'string' && error.message.trim()
+          ? error.message.trim()
+          : '服务器通知保存失败';
         if (hintEl) hintEl.textContent = errMsg;
         if (typeof showToast === 'function') showToast(errMsg, 'error');
       } finally {
