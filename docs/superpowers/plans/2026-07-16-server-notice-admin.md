@@ -289,17 +289,39 @@ test: define server notice admin tests
 
 **Files:**
 - `frontend/index.html`
+- `frontend/js/main.js`（严格限定范围，见下方）
 
 **修改范围:**
-- 只改 HTML 结构
+- `frontend/index.html`：只改 HTML 结构（前台通知增加 id、后台表单 DOM）
+- `frontend/js/main.js`：**只修改 `panelTemplates` 中 `homeManage: () =>` 返回的模板字符串**，在该模板字符串内新增后台编辑表单：`#editNoticeEnabled`、`#editNoticeTitle`、`#editNoticeLines`、`#saveServerNotice`、`#saveNoticeHint`、关联 label for/id、保存按钮 type="button"
 
-**明确禁止修改:**
+**明确禁止:**
 - `scripts/test-server-notice-admin.js`（测试冻结）
-- `frontend/js/main.js`
+- `frontend/js/main.js` 中**除 `homeManage` 模板字符串以外的任何修改**（变量声明、函数、事件绑定、配置加载、保存逻辑、setupNoticeFloating、applyPublicBackendConfig、applyFullBackendConfig 等 JS 行为逻辑全部不允许）
 - `frontend/css/main.css`
 - `backend/server.js`
 - `backend/db/schema.sql`
 - 所有其他文件
+
+**任务边界说明:**
+- Task 2 和 Task 3 **连续修改同一个文件 `frontend/js/main.js`**，但修改区域不同：Task 2 是模板 HTML（`homeManage` 字符串内），Task 3 是 JavaScript 行为逻辑
+- 两个修改各自独立提交，不允许合并在同一个提交
+
+**前置确认:**
+- `node --check frontend/js/main.js`
+
+**Git add:**
+- `git add -- frontend/index.html frontend/js/main.js`
+
+**提交信息保持:**
+```
+feat: add notice editor structure and DOM IDs
+```
+
+**完成报告须额外确认:**
+- `frontend/js/main.js` 只修改了 `homeManage` 模板字符串
+- 没有新增或修改任何 JS 行为逻辑
+- 使用修改前备份比较，列出 `main.js` 的全部差异区块
 
 **实现接口:**
 前台通知区改造：
