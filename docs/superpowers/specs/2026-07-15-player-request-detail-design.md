@@ -44,10 +44,11 @@
 - `requestLabel(status)`：映射 `pending→待讨论`、`done→已完成`、`rejected→已拒绝`。
 - `requestCategoryLabel(category)`：`BUG→BUG`、`优化→优化项`、其他 `→新建议`。
 - `escapeHtml(value)` / `escapeAttr(value)`：对所有动态文本做 HTML 转义（main.js 约 770 / 780 行），**所有玩家/管理员文本必须经由这两个函数**。
-- 管理员说明现状（`renderRequests` 2111–2115）：
-  - `done` → `完成说明：${item.adminReply || '已完成处理'}`
-  - `rejected` → `拒绝原因：${item.rejectReason || item.adminReply || '管理员未填写拒绝原因'}`
-  - 其他 → `管理员回复：${item.adminReply}`（仅当 `adminReply` 非空）
+- 管理员说明现状（`renderRequests` 2111–2115，仅记录既有代码行为，供对照）：
+  - `done` → 读取 `item.adminReply`，标题为「完成说明」。
+  - `rejected` → 优先读取 `item.rejectReason`，回退 `item.adminReply`，标题为「拒绝原因」。
+  - 其他 → 读取 `item.adminReply`，标题为「管理员回复」（仅当非空）。
+  - ⚠️ 既有代码在字段为空时会输出占位文案（如空的「完成说明」「拒绝原因」占位串）。**本规格第 7 节规定的新详情设计已移除所有占位文案**，统一改为「字段为空则不渲染管理员说明区」（见第 12 节）。
 
 ### 2.4 DOM 结构（来自 `frontend/index.html` 153–176 行）
 ```
@@ -147,13 +148,14 @@
 
 真实字段：`adminReply`（管理员回复）、`rejectReason`（拒绝原因）。
 
-| 规范后状态 | 标题 | 读取字段 | 回退 |
+| 规范后状态 | 标题 | 读取字段 | 空值处理 |
 | --- | --- | --- | --- |
-| `done` | **完成说明** | `item.adminReply` | 空时显示「已完成处理」 |
-| `rejected` | **拒绝原因** | `item.rejectReason` | 空时回退 `item.adminReply`，再空显示「管理员未填写拒绝原因」 |
-| `pending` / `planned` | **管理员回复** | `item.adminReply` | 空时不渲染说明区 |
+| `done` | **完成说明** | `item.adminReply` | 非空时显示；**为空时不渲染管理员说明区** |
+| `rejected` | **拒绝原因** | `item.rejectReason` | 非空时显示；为空时允许读取真实的 `item.adminReply`；**两者均为空时不渲染管理员说明区** |
+| `pending` / `planned` | **管理员回复** | `item.adminReply` | 非空时显示；**为空时不渲染管理员说明区** |
 
-> 此规则与现有 `renderRequests` 的 `statusNote` 逻辑完全一致，仅将「是否展开」从始终显示改为「仅在详情区（或卡片底部）按现有样式展示」，确保前后台语义统一、不新增字段。
+> **统一空值规则（唯一规则）**：管理员说明区仅在对应字段**非空**时渲染；任何状态下字段为空均**不渲染**说明区，不生成任何空值占位文案。此规则覆盖 `done` / `rejected` / `pending` / `planned` 全部状态，与第 12 节一致。
+> 与现有 `renderRequests` 的差异：既有代码在 `done` / `rejected` 空值时输出占位文字，新详情设计移除占位、统一改为「空则不渲染」。标题逻辑（完成说明 / 拒绝原因 / 管理员回复）与现有代码一致，不新增字段。
 
 ---
 
@@ -163,7 +165,12 @@
 - **点击展开**：当前卡片渲染详情区，按钮文案变「收起详情」，`aria-expanded="true"`，`aria-controls` 指向该详情区唯一 id。
 - **再次点击**：收起当前卡片，文案还原，`aria-expanded="false"`。
 - **切换卡片**：点击另一张的「查看详情」时，先收起已展开卡片（将 `expandedRequestId` 置空并重渲染或就地收起），再展开新卡片；保证同一时间仅一张展开。
-- **重新筛选 / 搜索 / 重渲染**：`renderRequests()` 每次重渲染时依据 `expandedRequestId` 决定哪张展开；若当前展开 ID 不在筛选结果内，则该卡片不存在，等同于收起（安全重置，无残留展开态引用）。
+- **三类筛选操作与数据重载必须显式清空展开状态**（不可仅依赖「卡片不在结果中」隐性收起）：
+  - 点击**状态筛选**按钮时，先执行 `expandedRequestId = null`。
+  - 点击**分类筛选**按钮时，先执行 `expandedRequestId = null`。
+  - **搜索**输入变化并触发重新筛选时，先执行 `expandedRequestId = null`。
+  - 重新加载建议数据或整体替换 `requests` 数据时，也执行 `expandedRequestId = null`。
+- **普通重渲染保留展开**：`renderRequests()` 的常规重绘（如投票后局部刷新）**不应无条件清空** `expandedRequestId`，否则点击展开后会立即失效；仅上述筛选 / 重载场景才清空，确保「普通展开重绘仍保留当前展开项」。
 - **不记忆**：不使用 `localStorage`，刷新后 `expandedRequestId` 恢复初始值（无展开）。
 
 ---
@@ -208,9 +215,14 @@
 ```js
 let expandedRequestId = null; // 默认：无卡片展开
 ```
-- 使用稳定建议 ID（`getRequestId(item, index)` 返回值），**不优先用数组下标**。
-- `getRequestId` 行为：若 `item.id` 存在则返回；否则生成 `req-${Date.now()}-${index}-${随机}` 并写回 `item.id`，保证同一次会话内稳定。
-- **降级方案**：若 `getRequestId` 因异常无法生成（极端情况），回退使用 `index` 作为 key，并在测试与验收中明确该降级路径。
+- 统一使用稳定建议 ID：`getRequestId(item, index)` 返回值（正常情况）。
+- `getRequestId` 已负责在缺少 `item.id` 时生成并写回运行时 ID，无需额外的数组下标降级 key。
+- **无有效 ID 的异常降级**：若极端情况下无法取得有效 `requestId`：
+  - 当前卡片**不渲染「查看详情」入口**（跳过该按钮）。
+  - 不渲染带不稳定 id 的详情区域。
+  - 其他卡片继续正常工作，列表整体不崩溃。
+  - 不抛出导致整个建议列表失败的异常。
+- `aria-controls` 与详情区 `id` 必须基于经 `escapeAttr` 处理的有效 `requestId` 生成。
 
 ### 10.2 渲染联动
 - `renderRequests()` 在生成每张卡片时，依据 `expandedRequestId === requestId` 决定详情区是否带 `hidden`、按钮 `aria-expanded` 与文案。
@@ -239,7 +251,7 @@ let expandedRequestId = null; // 默认：无卡片展开
 ## 12. 空字段和异常处理
 
 - 字段不存在或值为空 → 对应详情行**不渲染**，绝不输出 `undefined` / `null` / 空标题。
-- 管理员说明为空 → 不渲染说明区（与现状一致）。
+- 管理员说明为空 → 不渲染说明区（按第 7 节统一空值规则）。
 - 图片数组为空 / 非数组 → 不渲染图片区。
 - `created_at` 不存在 → **不渲染时间行**（当前真实数据即如此；若未来后端注入该字段，自动显示，无需改代码）。
 - 文本一律经 `escapeHtml`；属性值（如 `id`、图片 `src`、`aria-controls`）经 `escapeAttr`，禁止未转义拼入 HTML。
@@ -290,7 +302,7 @@ let expandedRequestId = null; // 默认：无卡片展开
 
 ## 15. 测试要求
 
-建议新增 `scripts/test-request-detail.js`（纯 Node `fs` + `assert`，风格参照 `scripts/test-request-manage.js`，读取 `frontend/js/main.js` 或生产页 HTML 进行静态/结构断言；如需 DOM 行为，可沿用项目既有测试约定）。至少覆盖以下 **27** 项：
+建议新增 `scripts/test-request-detail.js`（纯 Node `fs` + `assert`，风格参照 `scripts/test-request-manage.js`，读取 `frontend/js/main.js` 或生产页 HTML 进行静态/结构断言；如需 DOM 行为，可沿用项目既有测试约定）。至少覆盖以下 **32** 项：
 
 1. 「查看详情」按钮存在（卡片模板含 `data-action="toggle-request-detail"`）。
 2. 按钮位于建议卡片底部操作区（`.vote-actions` 内，最左侧）。
@@ -302,23 +314,28 @@ let expandedRequestId = null; // 默认：无卡片展开
 8. 再次点击收起。
 9. 同一时间只展开一张卡片。
 10. 点击另一张时前一张自动收起。
-11. 重新筛选后展开状态安全重置。
-12. 完整建议内容（`item.text`）正确显示并转义。
-13. `created_at` 或真实时间字段正确显示（**仅当字段存在**；当前真实数据无此字段，测试应断言「不存在时不渲染时间行」）。
-14. `pending` / `planned` 状态说明标题为「管理员回复」。
-15. `done` 状态说明标题为「完成说明」。
-16. `rejected` 状态说明标题为「拒绝原因」。
-17. 管理员说明为空时不渲染空区块。
-18. 不存在的字段不显示 `undefined` / `null`。
-19. 图片为空时不渲染空图片区。
-20. 状态颜色继续使用现有类名（`.request-card.done` / `.rejected` / `.pending` 及 `.tag` 状态色）。
-21. 原有投票、讨论、筛选或其他按钮不回归。
-22. 320/375/414 无横向滚动。
-23. 横屏触控视口按钮可点击（≥44px）。
-24. 查看详情按钮触控高度不低于 44px。
-25. 亮色和暗色主题可读。
-26. 控制台无 JavaScript 错误。
-27. 生产页（`erp14-server-showcase.html`）保持不变（同步检查 `/api/config` 与 `check-frontend-sync.js` 不报差异）。
+11. **状态筛选后展开状态清空**（点击状态筛选按钮时 `expandedRequestId = null`）。
+12. **分类筛选后展开状态清空**（点击分类筛选按钮时 `expandedRequestId = null`）。
+13. **搜索变化后展开状态清空**（搜索输入变化并触发重新筛选时 `expandedRequestId = null`）。
+14. **普通展开重绘仍保留当前展开项**（投票后局部 `renderRequests` 重绘不清空 `expandedRequestId`）。
+15. 重新筛选后展开状态安全重置。
+16. 完整建议内容（`item.text`）正确显示并转义。
+17. `created_at` 或真实时间字段正确显示（**仅当字段存在**；当前真实数据无此字段，测试应断言「不存在时不渲染时间行」）。
+18. `pending` / `planned` 状态说明标题为「管理员回复」。
+19. `done` 状态说明标题为「完成说明」。
+20. `rejected` 状态说明标题为「拒绝原因」。
+21. 管理员说明为空时不渲染空区块（不生成空值占位文案）。
+22. 不存在的字段不显示 `undefined` / `null`。
+23. 图片为空时不渲染空图片区。
+24. 状态颜色继续使用现有类名（`.request-card.done` / `.rejected` / `.pending` 及 `.tag` 状态色）。
+25. 原有投票、讨论、筛选或其他按钮不回归。
+26. 320/375/414 无横向滚动。
+27. 横屏触控视口按钮可点击（≥44px）。
+28. 查看详情按钮触控高度不低于 44px。
+29. 亮色和暗色主题可读。
+30. 控制台无 JavaScript 错误。
+31. **无有效 ID 时该卡片不提供详情入口且列表不崩溃**（不渲染「查看详情」按钮、不渲染不稳定 id 详情区，其他卡片正常）。
+32. 生产页**暂未同步**（`erp14-server-showcase.html`）；`frontend/` 新增玩家建议详情功能使二者出现**预期差异**，`check-frontend-sync.js` 在此阶段允许报差异，不得要求零差异，准确归因「`frontend/` 已新增玩家建议详情功能，生产页按本阶段边界暂未同步」；生产页 SHA256 须保持不变（文件本身未改）。
 
 ---
 
@@ -330,7 +347,7 @@ let expandedRequestId = null; // 默认：无卡片展开
   - 切换卡片前一张自动收起；筛选 / 搜索后展开态重置。
   - 无横向滚动、无元素重叠、控制台零错误。
   - 暗色主题下详情区与说明文字清晰可读。
-- 生产页 SHA256 与基准一致（`check-frontend-sync.js` 通过）。
+- 生产页 `erp14-server-showcase.html` 文件**本身未修改**，其 SHA256 与基准一致；但因 `frontend/` 已新增玩家建议详情功能，本阶段 `check-frontend-sync.js` 允许报**预期差异**，不要求零差异（准确归因：「`frontend/` 已新增玩家建议详情功能，生产页按本阶段边界暂未同步」）。构建 preview 须成功、`test-build-frontend-preview.js` 须通过。最终是否同步生产页由总指挥另行确认。
 
 ---
 
@@ -345,9 +362,12 @@ let expandedRequestId = null; // 默认：无卡片展开
 
 ## 18. 生产页同步边界
 
-- 功能实现阶段**只改 `frontend/` 拆分源码**（`main.js` / `main.css`）；按项目既有流程，如需同步到 `erp14-server-showcase.html` 生产页，须在最终文档阶段由总指挥确认后执行（不在本 Task 0.1 范围）。
+- 功能实现阶段**只改 `frontend/` 拆分源码**（`main.js` / `main.css`）；**不修改**生产页 `erp14-server-showcase.html`。
+- 本阶段 `frontend/` 与生产页出现本功能对应的差异**属于预期**，不得要求 `scripts/check-frontend-sync.js` 在生产页未同步时零差异。
+- 若同步检查报差异，须准确归因为：「`frontend/` 已新增玩家建议详情功能，生产页按本阶段边界暂未同步。」（非功能缺陷）。
+- 构建 preview 须成功、`scripts/test-build-frontend-preview.js` 须通过；生产页 SHA256 须保持不变（文件本身未改）。
+- 最终是否将 `frontend/` 改动同步到 `erp14-server-showcase.html` 生产页，由总指挥另行确认，不在本 Task 0.1 / 本功能阶段默认执行。
 - 本规格本身不触碰任何生产文件；提交仅含规格文档。
-- 所有改动须通过 `scripts/check-frontend-sync.js` 与 `scripts/verify-all.js`（功能阶段），确保生产页与 `frontend/` 不出现非预期差异。
 
 ---
 
@@ -357,7 +377,11 @@ let expandedRequestId = null; // 默认：无卡片展开
 - ✅ 字段映射全部来自真实代码（`renderRequests` 2111–2126、种子 108–113、后台 `server.js` 495/570）。
 - ✅ 未虚构 `reply` / `completionNote`；`rejectReason`、`adminReply` 为真实字段。
 - ✅ 「同一字段按状态改变标题」规则已明确修正为「两个真实字段、标题随状态变化」（第 6/7/17 节），并标注与任务书假设的偏差。
+- ✅ 管理员说明统一空值规则：任何状态字段为空均**不渲染说明区**，已删除空值占位文案（第 7/12 节）。
+- ✅ 展开状态重置已修正为显式 `expandedRequestId = null`：状态筛选 / 分类筛选 / 搜索变化 / 数据重载均清空；普通 `renderRequests` 重绘保留展开项（第 8 节）。
+- ✅ 已删除数组下标 `index` 降级方案，改为「无有效 ID 时该卡片不渲染详情入口、列表不崩溃」（第 10.1 节）。
+- ✅ 生产页暂未同步：本阶段 `frontend/` 新增功能使生产页出现**预期差异**，`check-frontend-sync.js` 允许报差异并准确归因，不要求零差异；生产页 SHA256 须保持不变（第 16/18 节）。
 - ✅ 未要求修改 backend / 数据库 / API（第 14.4 节明确禁止）。
 - ✅ 未要求修改生产页（第 14.4、18 节明确禁止）。
-- ✅ 测试数量（27 项）与第 15 节描述一致。
+- ✅ 测试数量（32 项）与第 15 节描述一致。
 - ✅ `git diff --check` 通过（仅新增文档，无空白错误）。
