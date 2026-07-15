@@ -225,38 +225,89 @@ test('js', 'A7. "查看详情" 和 "收起详情" 文案存在于卡片模板', 
 
 // ============ B. JavaScript 行为测试 ============
 
-// ---- 逐字符标签属性解析器（仅测试用） ----
-// 尊重单双引号边界；&quot; 是实体不是真实引号；返回属性名→解码值
+// ---- 逐字符标签属性解析器（for 索引、无正则） ----
+// 步骤：跳过 < 与标签名；逐字符读属性名；跳过空白；识别 =；跳过空白；
+// 若首字符是 ' 或 "，则保存 quote 并扫描到相同真实 quote（&quot; 只按普通文本处理）；
+// 否则扫描到空白或 >。禁止正则提取。
 function parseTagAttributes(tagHtml) {
   const attrs = {};
-  // 用正则提取每个 name=value 对
-  const attrRe = /(\S+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|(\S+))/g;
-  let m;
-  while ((m = attrRe.exec(tagHtml)) !== null) {
-    const name = m[1];
-    if (name === 'img' || name.startsWith('<')) continue; // 跳过标签名
-    let raw = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] || ''));
+  let i = 0;
+  // 跳过 '<'
+  while (i < tagHtml.length && tagHtml[i] !== '<') i++;
+  i++; // 跳过 '<'
+  // 跳过标签名（非空白、非 >）
+  while (i < tagHtml.length && tagHtml[i] !== ' ' && tagHtml[i] !== '>' && tagHtml[i] !== '\t' && tagHtml[i] !== '\n') i++;
+  // 逐属性扫描
+  while (i < tagHtml.length && tagHtml[i] !== '>') {
+    // 跳过空白
+    while (i < tagHtml.length && (tagHtml[i] === ' ' || tagHtml[i] === '\t' || tagHtml[i] === '\n' || tagHtml[i] === '\r' || tagHtml[i] === '/')) i++;
+    if (i >= tagHtml.length || tagHtml[i] === '>') break;
+    // 读取属性名
+    const nameStart = i;
+    while (i < tagHtml.length && tagHtml[i] !== '=' && tagHtml[i] !== ' ' && tagHtml[i] !== '\t' && tagHtml[i] !== '\n' && tagHtml[i] !== '>' && tagHtml[i] !== '/') i++;
+    if (nameStart === i) break;
+    const attrName = tagHtml.slice(nameStart, i);
+    // 跳过空白
+    while (i < tagHtml.length && (tagHtml[i] === ' ' || tagHtml[i] === '\t')) i++;
+    if (i >= tagHtml.length) break;
+    let attrValue = '';
+    if (tagHtml[i] === '=') {
+      i++; // 跳过 '='
+      // 跳过空白
+      while (i < tagHtml.length && (tagHtml[i] === ' ' || tagHtml[i] === '\t')) i++;
+      if (i >= tagHtml.length) break;
+      // 判断值的引号
+      const quote = tagHtml[i];
+      if (quote === '"' || quote === "'") {
+        i++; // 跳过起始引号
+        // 扫描到相同真实 quote（&quot; 是普通文本，不是真实引号）
+        const valStart = i;
+        while (i < tagHtml.length && tagHtml[i] !== quote) i++;
+        attrValue = tagHtml.slice(valStart, i);
+        if (i < tagHtml.length) i++; // 跳过结束引号
+      } else {
+        // 无引号值：扫描到空白或 >
+        const valStart = i;
+        while (i < tagHtml.length && tagHtml[i] !== ' ' && tagHtml[i] !== '\t' && tagHtml[i] !== '>' && tagHtml[i] !== '/') i++;
+        attrValue = tagHtml.slice(valStart, i);
+      }
+    } else {
+      // 布尔属性
+      attrValue = '';
+    }
     // HTML 实体解码
-    const decoded = raw.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'");
-    attrs[name] = decoded;
+    const decoded = attrValue.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'");
+    attrs[attrName] = decoded;
   }
   return attrs;
 }
 
 // ---- 解析器自检 ----
 (function testParser() {
-  // 安全标签：src 中的 &quot; 是实体，不是真实引号，不应形成 onerror 属性
+  // 安全标签：src 中的 &quot; 不是真实引号，不形成 onerror 属性
   const safe = '<img src="x&amp;quot; onerror=&amp;quot;alert(1)" class="request-detail-img">';
   const safeAttrs = parseTagAttributes(safe);
-  assert.ok(!('onerror' in safeAttrs), '解析器自检：安全标签误判 onerror');
-  assert.ok(safeAttrs.src === 'x" onerror="alert(1)', '解析器自检：安全标签 src 解码不正确，得到: ' + JSON.stringify(safeAttrs.src));
-  assert.ok(safeAttrs.class === 'request-detail-img', '解析器自检：安全标签 class 解析不正确');
-  // 不安全标签：真实双引号闭合 src，后跟独立 onerror 属性
+  const safeKeys = Object.keys(safeAttrs);
+  assert.ok(safeKeys.length === 2, '安全标签属性数不是 2: ' + JSON.stringify(safeKeys));
+  assert.ok(!('onerror' in safeAttrs), '安全标签误判 onerror');
+  assert.ok(safeAttrs.src === 'x" onerror="alert(1)', '安全标签 src 解码错: ' + JSON.stringify(safeAttrs.src));
+  assert.ok(safeAttrs.class === 'request-detail-img', '安全标签 class 错');
+  // 不安全标签：真实双引号闭合 src，后跟独立 onerror
   const unsafe = '<img src="x" onerror="alert(1)">';
   const unsafeAttrs = parseTagAttributes(unsafe);
-  assert.ok('onerror' in unsafeAttrs, '解析器自检：不安全标签漏判 onerror');
-  assert.ok(unsafeAttrs.src === 'x', '解析器自检：不安全标签 src 不正确');
-  assert.ok(unsafeAttrs.onerror === 'alert(1)', '解析器自检：不安全标签 onerror 值不正确');
+  assert.ok('src' in unsafeAttrs, '不安全缺 src');
+  assert.ok('onerror' in unsafeAttrs, '不安全漏判 onerror');
+  assert.ok(unsafeAttrs.src === 'x', '不安全 src 错');
+  // 单引号属性
+  const singleQ = "<img src='hello' onclick='world'>";
+  const sqAttrs = parseTagAttributes(singleQ);
+  assert.ok(sqAttrs.src === 'hello', '单引号 src 错');
+  assert.ok(sqAttrs.onclick === 'world', '单引号 onclick 错');
+  // 无引号属性
+  const noQ = '<img src=hello.png alt=world>';
+  const nqAttrs = parseTagAttributes(noQ);
+  assert.ok(nqAttrs.src === 'hello.png', '无引号 src 错: ' + nqAttrs.src);
+  assert.ok(nqAttrs.alt === 'world', '无引号 alt 错');
 })();
 
 // B1: 用提取的变量声明验证
@@ -490,10 +541,11 @@ test('js', 'B20. 建议正文经过 HTML 转义', () => {
   assert.ok(!grid.includes('<b>恶意</b>'), '未转义的 <b> 标签出现在 HTML 中');
   // 包含转义后的 &lt;b&gt;
   assert.ok(grid.includes('&lt;b&gt;') || grid.includes('&#60;b&#62;'), '转义后的 <b> 未正确显示');
-  // 玩家名中的双引号不应形成 onerror 属性
-  // 检查 img 标签是否有 onerror
-  const imgOnErrorRe = /<img[^>]*\sonerror\s*=/i;
-  assert.ok(!imgOnErrorRe.test(grid), '图片标签出现了 onerror 属性');
+  // 玩家名中的双引号不突破标签结构（仅检查文本节点有转义，不负责图片属性）
+  assert.ok(grid.includes('&lt;script&gt;') || grid.includes('&#60;script&#62;'), 'script 转义未正确显示');
+  assert.ok(grid.includes('&lt;b&gt;') || grid.includes('&#60;b&#62;'), 'b 标签转义未正确显示');
+  assert.ok(!grid.includes('<script>alert(1)</script>'), '原始 script 标签未转义');
+  assert.ok(!grid.includes('<b>恶意</b>'), '原始 b 标签未转义');
 });
 
 test('js', 'B21. requestId、图片地址等属性经过属性转义', () => {
@@ -509,16 +561,24 @@ test('js', 'B21. requestId、图片地址等属性经过属性转义', () => {
   // src 属性必须存在
   assert.ok('src' in attrs, 'img 标签缺少 src 属性');
   assert.ok(attrs.src.length > 0, 'img 标签 src 属性为空');
-  // 不得有事件处理器属性
-  const eventAttrs = ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus', 'onblur'];
-  const foundEvents = eventAttrs.filter(name => name in attrs);
-  assert.ok(foundEvents.length === 0, 'img 标签存在未转义的事件属性: ' + foundEvents.join(','));
-  // src 值中的双引号被转义（包含 &quot; 或等价形式）
-  const rawImgTag = grid.match(/<img\s[^>]*src\s*=\s*"[^"]*"/);
-  if (rawImgTag) {
-    const srcVal = rawImgTag[0].match(/src\s*=\s*"([^"]*)"/)[1];
-    assert.ok(srcVal.includes('&quot;') || srcVal.includes('&#34;') || srcVal.includes('&#x22;'),
-      'src 属性值中双引号未转义: ' + srcVal.slice(0, 50));
+  // 不得有任何以 on 开头的事件属性
+  const onAttrs = Object.keys(attrs).filter(name => name.startsWith('on'));
+  assert.ok(onAttrs.length === 0, 'img 标签存在未转义的事件属性: ' + onAttrs.join(','));
+  // src 值中的双引号被转义（src 属性值实际含 &quot; 实体）
+  const rawSrcStart = imgTag.indexOf('src=');
+  if (rawSrcStart !== -1) {
+    const afterSrc = imgTag.slice(rawSrcStart + 4);
+    const firstChar = afterSrc.trim()[0];
+    if (firstChar === '"' || firstChar === "'") {
+      const quote = firstChar;
+      const valPart = afterSrc.trim().slice(1);
+      const endQuote = valPart.indexOf(quote);
+      if (endQuote !== -1) {
+        const rawVal = valPart.slice(0, endQuote);
+        assert.ok(rawVal.includes('&quot;') || rawVal.includes('&#34;') || rawVal.includes('&#x22;'),
+          'src 属性值中双引号未转义: ' + rawVal.slice(0, 50));
+      }
+    }
   }
 });
 
