@@ -1,5 +1,20 @@
 # Player Request Detail Implementation Plan
 
+> **状态：已废弃 / 已被玩家建议卡片简化方案替代**
+>
+> **废弃说明**
+> - 原 Task 1–5 的"详情展开"路线已终止。
+> - **不得继续依据此计划恢复 `expandedRequestId`、`buildRequestDetail`、`toggleRequestDetail` 或 `request-detail` DOM。**
+> - **最终实际完成路线：**
+>   1. 重新定义简化测试；
+>   2. 删除详情展开 JavaScript；
+>   3. 修复按钮换行和字体；
+>   4. 强化后台图片大图提示；
+>   5. 构建预览与浏览器验收。
+> - 当前实现以更新日志最新记录和代码地图当前定位为准。
+>
+> 历史正文保留作为决策过程记录，不再代表当前实施方案。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在玩家建议卡片底部增加“查看详情”按钮，点击后在卡片内部展开真实详情，同时保持现有投票、筛选、提交和后台功能不变。
