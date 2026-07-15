@@ -203,6 +203,7 @@
     let playerSessions = [];
     let expandedFixed = false;
     let expandedSignup = false;
+    let serverNotice = null;
     const ACTIVITY_PREVIEW_COUNT = 2;
     let logs = [
       { title: '13:58 每周活动公告更新', text: '周末空投活动发布时间变更', tag: '公告', tagClass: 'blue' },
@@ -1711,7 +1712,11 @@ ${renderManagedImageField({
       if (Array.isArray(config.requests)) {
         requests = mergeArray(requests, config.requests.map(normalizeRequestItem));
       }
+      if (config.server_notice !== undefined) {
+        serverNotice = normalizeServerNotice(config.server_notice);
+      }
       renderAll();
+      renderServerNotice();
     }
 
     // 合并完整配置（含敏感字段），仅在管理员登录后调用。
@@ -1725,6 +1730,7 @@ ${renderManagedImageField({
       panelViews = mergeObject(panelViews, config.panelViews);
       contentOverrides = mergeArray(contentOverrides, config.contentOverrides);
       renderAll();
+      populateServerNoticeForm();
     }
 
     // 兼容旧调用名（仅登录后用完整合并）。
@@ -3927,6 +3933,9 @@ ${item.text}`);
         document.getElementById('saveHomeRules').addEventListener('click', saveHomeRules);
         document.getElementById('saveHomeFeatures').addEventListener('click', saveHomeFeatures);
         document.getElementById('saveHomeStats').addEventListener('click', saveHomeStats);
+        var noticeSaveBtn = document.getElementById('saveServerNotice');
+        if (noticeSaveBtn) noticeSaveBtn.addEventListener('click', saveServerNotice);
+        populateServerNoticeForm();
       }
       if (name === 'groupManage') {
         document.getElementById('saveGroupSettings').addEventListener('click', saveGroupSettings);
@@ -3985,23 +3994,174 @@ ${item.text}`);
       showToast(`欢迎，${activePlayerName}`, 'info');
     }
 
-    function setupNoticeFloating() {
-      const floating = document.getElementById('noticeFloating');
-      const bubble = document.getElementById('noticeBubble');
-      const closeBtn = document.getElementById('noticeClose');
-      if (!floating || !bubble || !closeBtn) return;
-      bubble.innerHTML = (icons.bell || '') + '<span class="notice-bubble-dot" aria-hidden="true"></span>';
-      const NOTICE_COLLAPSED_KEY = 'erp14-notice-collapsed';
-      if (localStorage.getItem(NOTICE_COLLAPSED_KEY) === '1') {
-        floating.classList.add('collapsed');
+    // ---- 服务器通知后台编辑（新增函数） ----
+
+    function normalizeServerNotice(value) {
+      if (value === null || value === undefined || typeof value !== 'object' || Array.isArray(value)) {
+        value = {};
       }
-      closeBtn.addEventListener('click', () => {
-        floating.classList.add('collapsed');
-        localStorage.setItem(NOTICE_COLLAPSED_KEY, '1');
+      if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { value = {}; }
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) value = {};
+      }
+      var enabled = typeof value.enabled === 'boolean' ? value.enabled : true;
+      var title = String(value.title !== undefined && value.title !== null ? value.title : '').trim();
+      if (!title) title = '服务器通知';
+      var lines;
+      if (Array.isArray(value.lines)) {
+        lines = value.lines.map(function(l) { return String(l).trim(); }).filter(function(l) { return l.length > 0; });
+      } else {
+        lines = [
+          '维护公告：当前赛季长期运营，维护和重启会提前在群内与网站同步通知。',
+          '活动奖励：活动结束后按报名名单和实际参与情况统计，管理员统一发放奖励。',
+          '新手提醒：入服前建议先查看服务器注意事项，避免误会和违规。',
+          '问题反馈：BUG、规则建议和优化想法统一提交到玩家建议页，方便后台跟进。'
+        ];
+      }
+      var version;
+      if (value.version !== undefined && value.version !== null && value.version !== '') {
+        version = String(value.version);
+      } else {
+        version = '';
+      }
+      return { enabled: enabled, title: title, lines: lines, version: version };
+    }
+
+    function renderServerNotice() {
+      var normalized = normalizeServerNotice(serverNotice);
+      var floating = document.getElementById('noticeFloating');
+      var bubble = document.getElementById('noticeBubble');
+      var panel = document.getElementById('noticePanel');
+      var titleEl = document.getElementById('noticeTitle');
+      var linesEl = document.getElementById('noticeLines');
+      if (!floating || !bubble || !panel || !titleEl || !linesEl) return;
+      if (!normalized.enabled || normalized.lines.length === 0) {
+        floating.hidden = true;
+        if (bubble) bubble.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      floating.hidden = false;
+      titleEl.textContent = normalized.title;
+      linesEl.replaceChildren();
+      normalized.lines.forEach(function(line) {
+        var li = document.createElement('li');
+        li.textContent = line;
+        linesEl.appendChild(li);
       });
-      bubble.addEventListener('click', () => {
+      // 版本化关闭状态
+      var collapsed = false;
+      try {
+        if (normalized.version && normalized.version.length > 0) {
+          var dismissed = localStorage.getItem('erp14-notice-dismissed-version');
+          collapsed = dismissed === normalized.version;
+        } else {
+          collapsed = localStorage.getItem('erp14-notice-collapsed') === '1';
+        }
+      } catch (e) {}
+      if (collapsed) {
+        panel.hidden = true;
+        bubble.setAttribute('aria-expanded', 'false');
+      } else {
+        panel.hidden = false;
+        bubble.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    function populateServerNoticeForm() {
+      var enabledInput = document.getElementById('editNoticeEnabled');
+      var titleInput = document.getElementById('editNoticeTitle');
+      var linesInput = document.getElementById('editNoticeLines');
+      if (!enabledInput || !titleInput || !linesInput) return;
+      var normalized = normalizeServerNotice(serverNotice);
+      enabledInput.checked = normalized.enabled;
+      titleInput.value = normalized.title;
+      linesInput.value = normalized.lines.join('\n');
+    }
+
+    async function saveServerNotice() {
+      var enabledInput = document.getElementById('editNoticeEnabled');
+      var titleInput = document.getElementById('editNoticeTitle');
+      var linesInput = document.getElementById('editNoticeLines');
+      var saveBtn = document.getElementById('saveServerNotice');
+      var hintEl = document.getElementById('saveNoticeHint');
+      if (!enabledInput || !titleInput || !linesInput || !saveBtn || !hintEl) return;
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+      try {
+        var nextNotice = normalizeServerNotice({
+          enabled: enabledInput.checked,
+          title: titleInput.value,
+          lines: linesInput.value.split(/\r?\n/),
+          version: String(Date.now())
+        });
+        var authHeaders = {};
+        var adminToken = '';
+        try { adminToken = localStorage.getItem('erp14-admin-token') || ''; } catch (e) {}
+        if (adminToken) {
+          authHeaders['Authorization'] = 'Bearer ' + adminToken;
+        }
+        authHeaders['Content-Type'] = 'application/json';
+        var response = await fetch(window.ERP14_API_BASE_URL ? window.ERP14_API_BASE_URL.replace(/\/$/, '') + '/api/admin/config' : '/api/admin/config', {
+          method: 'PUT',
+          headers: authHeaders,
+          body: JSON.stringify({ key: 'server_notice', value: nextNotice })
+        });
+        if (response.ok) {
+          serverNotice = normalizeServerNotice(nextNotice);
+          renderServerNotice();
+          populateServerNoticeForm();
+          var msg = '服务器通知已保存';
+          if (hintEl) hintEl.textContent = msg;
+          if (typeof showToast === 'function') showToast(msg, 'success');
+        } else {
+          var errMsg = '服务器通知保存失败';
+          try {
+            var errData = await response.json();
+            if (errData && errData.message) errMsg = errData.message;
+          } catch (e) {}
+          if (hintEl) hintEl.textContent = errMsg;
+          if (typeof showToast === 'function') showToast(errMsg, 'error');
+        }
+      } catch (e) {
+        var errMsg = '服务器通知保存失败';
+        if (hintEl) hintEl.textContent = errMsg;
+        if (typeof showToast === 'function') showToast(errMsg, 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    function setupNoticeFloating() {
+      var floating = document.getElementById('noticeFloating');
+      var bubble = document.getElementById('noticeBubble');
+      var panel = document.getElementById('noticePanel');
+      var closeBtn = document.getElementById('noticeClose');
+      if (!floating || !bubble || !panel || !closeBtn) return;
+      bubble.innerHTML = (typeof icons !== 'undefined' && icons.bell ? icons.bell : '') + '<span class="notice-bubble-dot" aria-hidden="true"></span>';
+      renderServerNotice();
+      if (bubble.__noticeFloatingBound) return;
+      bubble.__noticeFloatingBound = true;
+      bubble.addEventListener('click', function() {
+        panel.hidden = false;
         floating.classList.remove('collapsed');
-        localStorage.removeItem(NOTICE_COLLAPSED_KEY);
+        bubble.setAttribute('aria-expanded', 'true');
+        var sn = normalizeServerNotice(serverNotice);
+        if (sn.version && sn.version.length > 0) {
+          try { localStorage.removeItem('erp14-notice-dismissed-version'); } catch (e) {}
+        } else {
+          try { localStorage.removeItem('erp14-notice-collapsed'); } catch (e) {}
+        }
+      });
+      closeBtn.addEventListener('click', function() {
+        panel.hidden = true;
+        floating.classList.add('collapsed');
+        bubble.setAttribute('aria-expanded', 'false');
+        var sn = normalizeServerNotice(serverNotice);
+        if (sn.version && sn.version.length > 0) {
+          try { localStorage.setItem('erp14-notice-dismissed-version', sn.version); } catch (e) {}
+        } else {
+          try { localStorage.setItem('erp14-notice-collapsed', '1'); } catch (e) {}
+        }
       });
     }
 
