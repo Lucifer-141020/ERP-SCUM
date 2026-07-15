@@ -225,6 +225,40 @@ test('js', 'A7. "查看详情" 和 "收起详情" 文案存在于卡片模板', 
 
 // ============ B. JavaScript 行为测试 ============
 
+// ---- 逐字符标签属性解析器（仅测试用） ----
+// 尊重单双引号边界；&quot; 是实体不是真实引号；返回属性名→解码值
+function parseTagAttributes(tagHtml) {
+  const attrs = {};
+  // 用正则提取每个 name=value 对
+  const attrRe = /(\S+)\s*=\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|(\S+))/g;
+  let m;
+  while ((m = attrRe.exec(tagHtml)) !== null) {
+    const name = m[1];
+    if (name === 'img' || name.startsWith('<')) continue; // 跳过标签名
+    let raw = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : (m[4] || ''));
+    // HTML 实体解码
+    const decoded = raw.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'");
+    attrs[name] = decoded;
+  }
+  return attrs;
+}
+
+// ---- 解析器自检 ----
+(function testParser() {
+  // 安全标签：src 中的 &quot; 是实体，不是真实引号，不应形成 onerror 属性
+  const safe = '<img src="x&amp;quot; onerror=&amp;quot;alert(1)" class="request-detail-img">';
+  const safeAttrs = parseTagAttributes(safe);
+  assert.ok(!('onerror' in safeAttrs), '解析器自检：安全标签误判 onerror');
+  assert.ok(safeAttrs.src === 'x" onerror="alert(1)', '解析器自检：安全标签 src 解码不正确，得到: ' + JSON.stringify(safeAttrs.src));
+  assert.ok(safeAttrs.class === 'request-detail-img', '解析器自检：安全标签 class 解析不正确');
+  // 不安全标签：真实双引号闭合 src，后跟独立 onerror 属性
+  const unsafe = '<img src="x" onerror="alert(1)">';
+  const unsafeAttrs = parseTagAttributes(unsafe);
+  assert.ok('onerror' in unsafeAttrs, '解析器自检：不安全标签漏判 onerror');
+  assert.ok(unsafeAttrs.src === 'x', '解析器自检：不安全标签 src 不正确');
+  assert.ok(unsafeAttrs.onerror === 'alert(1)', '解析器自检：不安全标签 onerror 值不正确');
+})();
+
 // B1: 用提取的变量声明验证
 test('js', 'B1. 默认 expandedRequestId 为 null', () => {
   const decl = extractVariableAssignment(MAIN_JS, 'expandedRequestId');
@@ -467,15 +501,24 @@ test('js', 'B21. requestId、图片地址等属性经过属性转义', () => {
     { id: 'X', title: '测试', text: '内容', user: '玩家', status: 'pending', category: 'BUG', contact: 'QQ', adminReply: '', rejectReason: '', agree: 0, disagree: 0, images: ['http://test.com/x" onerror="alert(1)'] }
   ] });
   const grid = sandbox.render() || '';
-  // 检查 img 标签：src 属性必须存在，且没有 onerror
-  const imgRe = /<img[^>]*src\s*=\s*"[^"]*"/gi;
-  const imgOnErrorRe = /<img[^>]*\sonerror\s*=/i;
-  assert.ok(imgRe.test(grid), '没有找到 img 标签');
-  assert.ok(!imgOnErrorRe.test(grid), 'img 标签包含了 onerror 属性');
-  // 确认 src 中双引号被转义
-  const quotesInSrc = grid.match(/src\s*=\s*"[^"]*"/);
-  if (quotesInSrc) {
-    assert.ok(!quotesInSrc[0].includes(' onerror='), 'src 属性值中包含了未转义的 onerror');
+  // 提取 img 开始标签
+  const imgTagMatch = grid.match(/<img\s[^>]*>/);
+  if (!imgTagMatch) throw new Error('详情渲染未生成 img 标签（详情功能尚未实现）');
+  const imgTag = imgTagMatch[0];
+  const attrs = parseTagAttributes(imgTag);
+  // src 属性必须存在
+  assert.ok('src' in attrs, 'img 标签缺少 src 属性');
+  assert.ok(attrs.src.length > 0, 'img 标签 src 属性为空');
+  // 不得有事件处理器属性
+  const eventAttrs = ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus', 'onblur'];
+  const foundEvents = eventAttrs.filter(name => name in attrs);
+  assert.ok(foundEvents.length === 0, 'img 标签存在未转义的事件属性: ' + foundEvents.join(','));
+  // src 值中的双引号被转义（包含 &quot; 或等价形式）
+  const rawImgTag = grid.match(/<img\s[^>]*src\s*=\s*"[^"]*"/);
+  if (rawImgTag) {
+    const srcVal = rawImgTag[0].match(/src\s*=\s*"([^"]*)"/)[1];
+    assert.ok(srcVal.includes('&quot;') || srcVal.includes('&#34;') || srcVal.includes('&#x22;'),
+      'src 属性值中双引号未转义: ' + srcVal.slice(0, 50));
   }
 });
 
