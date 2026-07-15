@@ -170,10 +170,36 @@ function buildNoticeSandbox(opts) {
     else { fnSources.push('function ' + name + '() { throw new Error("' + name + ' 不存在"); }'); }
   });
 
-  // Build factory with shared scope
-  var factoryBody =
+  // Build factory with shared scope — prepend all state variables and dependency mocks
+  var stateDecl =
     'var serverNotice = null;\n' +
     'var renderCount = 0;\n' +
+    '// ---- 配置环境依赖 mock ----\n' +
+    'var heroImages = [];\n' +
+    'var serverInfo = {};\n' +
+    'var playItems = [];\n' +
+    'var updates = [];\n' +
+    'var siteSections = {};\n' +
+    'var homeStats = [];\n' +
+    'var homeFeatures = {};\n' +
+    'var serverRules = {};\n' +
+    'var buildingTemplates = [];\n' +
+    'var requests = [];\n' +
+    'var playerSessions = [];\n' +
+    'var logs = [];\n' +
+    'var imageLibrary = [];\n' +
+    'var requestVotes = {};\n' +
+    'var panelViews = {};\n' +
+    'var contentOverrides = [];\n' +
+    'function mergeArray(base, incoming) { if (Array.isArray(incoming)) return incoming.slice(); return base; }\n' +
+    'function mergeObject(base, incoming) { if (incoming && typeof incoming === "object" && !Array.isArray(incoming)) return Object.assign({}, base, incoming); return base; }\n' +
+    'function normalizeUpdates() {}\n' +
+    'function normalizeSiteSections() {}\n' +
+    'function normalizeRequestItem(item) { return item; }\n' +
+    'var _renderAllCount = 0;\n' +
+    'function renderAll() { _renderAllCount++; }\n' +
+    'function getRenderAllCount() { return _renderAllCount; }\n';
+  var factoryBody = stateDecl +
     fnSources.join('\n') + '\n' +
     'return {\n' +
     '  normalizeServerNotice: normalizeServerNotice,\n' +
@@ -187,6 +213,7 @@ function buildNoticeSandbox(opts) {
     '  getServerNotice: function() { return serverNotice; },\n' +
     '  incrementRenderCount: function() { renderCount++; },\n' +
     '  getRenderCount: function() { return renderCount; },\n' +
+    '  getRenderAllCount: function() { return _renderAllCount; },\n' +
     '  fnAvailable: fnAvailable\n' +
     '};\n';
 
@@ -278,12 +305,23 @@ async function runGroup(label, tests) {
     counter.fn(); counter.fn();
     if (execCount !== 2) errors.push('计数器异常');
   } catch(e) { errors.push('runner 计数失败: ' + e.message); }
+  // 6. applyPublic/applyFull 配置环境依赖齐全
+  try {
+    var _sb = buildNoticeSandbox();
+    // 尝试执行 applyPublicBackendConfig 和 applyFullBackendConfig 各一次
+    if (_sb.fns.fnAvailable.applyPublicBackendConfig) {
+      _sb.fns.applyPublicBackendConfig({ serverInfo: { title: '环境测试' } });
+    }
+    if (_sb.fns.fnAvailable.applyFullBackendConfig) {
+      _sb.fns.applyFullBackendConfig({ serverInfo: {} });
+    }
+  } catch(e) { errors.push('配置沙箱环境依赖缺失: ' + e.message); }
   if (errors.length) {
     console.error('Harness Preflight 失败:');
     errors.forEach(function(e){ console.error('  ' + e); });
     process.exit(1);
   }
-  console.log('Harness Preflight: 5/5 通过\n');
+  console.log('Harness Preflight: 6/6 通过\n');
 })();
 
 // ===========================================================================
