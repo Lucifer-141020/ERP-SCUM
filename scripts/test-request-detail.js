@@ -84,7 +84,8 @@ function helperSource() {
 }
 
 // 生成 document mock
-function docMock() {
+function docMock(activeStatus) {
+  var st = activeStatus || 'pending';
   return `const document = {
     getElementById: (id) => {
       if (id === 'requestGrid') {
@@ -100,7 +101,8 @@ function docMock() {
         querySelector(){return null}, querySelectorAll(){return []} };
     },
     querySelector: (sel) => {
-      if (sel === '#requestTabs button.active' || sel === '#requestCategoryFilters button.active') return null;
+      if (sel === '#requestTabs button.active') return { dataset: { status: '${st}' } };
+      if (sel === '#requestCategoryFilters button.active') return null;
       return null;
     },
     querySelectorAll: () => []
@@ -108,7 +110,7 @@ function docMock() {
   const location = { hash: '' };`;
 }
 
-function sandboxPrelude(seed, getRequestIdOverride) {
+function sandboxPrelude(seed, getRequestIdOverride, activeStatus) {
   const gid = getRequestIdOverride
     ? `function getRequestId(item, index) { return item && item.id === 'BROKEN' ? '' : (item.id || 'id_' + index); }`
     : (EXTRACTED_HELPERS.find(h => h.name === 'getRequestId')?.src || 'function getRequestId(item, index) { return item.id || "id_" + index; }');
@@ -121,15 +123,18 @@ function sandboxPrelude(seed, getRequestIdOverride) {
     ${gid}
     ${ESCAPE_HTML_SRC}
     ${EXTRACTED_HELPERS.filter(h => h.name !== 'getRequestId').map(h => h.src).join('\n')}
-    ${docMock()}
+    ${docMock(activeStatus)}
   `;
 }
 
 // ---- 构建基线沙箱（只含现有函数，不含新详情函数） ----
-function buildBaselineSandbox(seed) {
+function buildBaselineSandbox(seed, activeStatus) {
   const renderSrc = extractFunction(MAIN_JS, 'renderRequests');
+  const decl = extractVariableAssignment(MAIN_JS, 'expandedRequestId');
+  const expDecl = decl || 'let expandedRequestId = null;';
   const wrapper = `
-    ${sandboxPrelude(seed)}
+    ${sandboxPrelude(seed, null, activeStatus)}
+    ${expDecl}
     ${renderSrc || 'function renderRequests() { captured.requestGrid = "<div>no-render</div>"; }'}
     return {
       get grid(){ return captured.requestGrid; },
@@ -140,12 +145,12 @@ function buildBaselineSandbox(seed) {
 }
 
 // ---- 构建详情功能沙箱 ----
-function buildDetailSandbox(seed, getRequestIdOverride) {
+function buildDetailSandbox(seed, getRequestIdOverride, activeStatus) {
   const renderSrc = extractFunction(MAIN_JS, 'renderRequests');
   const detailFns = ['getRequestAdminDetail','buildRequestDetail','resetExpandedRequest','toggleRequestDetail']
     .map(name => ({ name, src: extractFunction(MAIN_JS, name) }));
   const wrapper = `
-    ${sandboxPrelude(seed, getRequestIdOverride)}
+    ${sandboxPrelude(seed, getRequestIdOverride, activeStatus)}
     let expandedRequestId = null;
     ${renderSrc || 'function renderRequests() { captured.requestGrid = "<div>no-render</div>"; }'}
     ${detailFns.map(h => h.src || '// ' + h.name + ' 不存在').join('\n')}
@@ -162,6 +167,24 @@ function buildDetailSandbox(seed, getRequestIdOverride) {
   `;
   return new Function('Date', 'Math', 'JSON', 'console', wrapper)(Date, Math, JSON, console);
 }
+
+// ---- 沙箱自检（不增加 test() 计数） ----
+(function selfCheck() {
+  // activeStatus=done 时 mock 返回 done
+  var dm = new Function(docMock('done') + ' return document;')();
+  var tabBtn = dm.querySelector('#requestTabs button.active');
+  var tabStatus = tabBtn ? tabBtn.dataset.status : 'MISSING';
+  if (tabStatus !== 'done') throw new Error('沙箱自检失败：docMock(done) 返回 ' + tabStatus);
+  // 默认 activeStatus=pending
+  dm = new Function(docMock() + ' return document;')();
+  tabBtn = dm.querySelector('#requestTabs button.active');
+  tabStatus = tabBtn ? tabBtn.dataset.status : 'MISSING';
+  if (tabStatus !== 'pending') throw new Error('沙箱自检失败：docMock() 默认返回 ' + tabStatus);
+  // baseline 注入 expandedRequestId 不抛 ReferenceError
+  var decl = extractVariableAssignment(MAIN_JS, 'expandedRequestId');
+  var es = new Function('"use strict"; ' + (decl || 'let expandedRequestId = null;') + ' return expandedRequestId;')();
+  if (es !== null) throw new Error('沙箱自检失败：expandedRequestId 初始值不是 null');
+})();
 
 // ============ A. JS 结构测试 ============
 test('js', 'A1. expandedRequestId 声明存在', () => {
@@ -586,14 +609,15 @@ test('js', 'B22. 三种状态标题映射在详情 HTML 中正确', () => {
   if (!extractFunction(MAIN_JS, 'renderRequests') || !extractFunction(MAIN_JS, 'getRequestAdminDetail')) {
     throw new Error('详情相关函数不存在');
   }
-  const dSandbox = buildDetailSandbox({ requests: [{ id: 'D', title: '完成', text: '内容', user: '玩家', status: 'done', category: 'BUG', contact: 'QQ', adminReply: '已修复', rejectReason: '', agree: 0, disagree: 0, images: [] }] });
+  const dSandbox = buildDetailSandbox({ requests: [{ id: 'D', title: '完成', text: '内容', user: '玩家', status: 'done', category: 'BUG', contact: 'QQ', adminReply: '已修复', rejectReason: '', agree: 0, disagree: 0, images: [] }] }, null, 'done');
   const dGrid = dSandbox.render() || '';
   assert.ok(dGrid.includes('完成说明'), 'done 未显示 "完成说明"');
-  const pSandbox = buildDetailSandbox({ requests: [{ id: 'P', title: '待办', text: '内容', user: '玩家', status: 'pending', category: 'BUG', contact: 'QQ', adminReply: '已收到', rejectReason: '', agree: 0, disagree: 0, images: [] }] });
+  const pSandbox = buildDetailSandbox({ requests: [{ id: 'P', title: '待办', text: '内容', user: '玩家', status: 'pending', category: 'BUG', contact: 'QQ', adminReply: '已收到', rejectReason: '', agree: 0, disagree: 0, images: [] }] }, null, 'pending');
   const pGrid = pSandbox.render() || '';
   assert.ok(pGrid.includes('管理员回复'), 'pending 未显示 "管理员回复"');
-  const rSandbox = buildDetailSandbox({ requests: [{ id: 'R', title: '拒绝', text: '内容', user: '玩家', status: 'rejected', category: 'BUG', contact: 'QQ', adminReply: '不通过', rejectReason: '不符合', agree: 0, disagree: 0, images: [] }] });
+  const rSandbox = buildDetailSandbox({ requests: [{ id: 'R', title: '拒绝', text: '内容', user: '玩家', status: 'rejected', category: 'BUG', contact: 'QQ', adminReply: '不通过', rejectReason: '不符合', agree: 0, disagree: 0, images: [] }] }, null, 'rejected');
   const rGrid = rSandbox.render() || '';
+
   assert.ok(rGrid.includes('拒绝原因'), 'rejected 未显示 "拒绝原因"');
 });
 
