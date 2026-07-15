@@ -1,5 +1,9 @@
 # 新手入服引导卡实施计划
 
+> **状态：已废弃 / 已被头图快捷操作方案替代**
+>
+> 本计划中的五步引导结构、样式和交互已经撤回，不得继续执行。当前有效方案以 `代码地图.md` 的“头图快捷操作”章节和现有 `frontend/` 源码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在首页增加可直接操作的五步新手入服引导，并保证桌面端、320/375/414 像素手机端正常使用。

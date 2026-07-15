@@ -1,5 +1,9 @@
 # Server Notice Admin Implementation Plan
 
+> **状态：已完成 / 仅供历史排查**
+>
+> 服务器通知后台编辑已经实现并完成专项测试与浏览器验收。本计划不再作为待执行任务；当前入口和真实行号以 `代码地图.md` 为准。
+
 > **固定工作区**：`C:\Users\Administrator\Desktop\SCUM用户网页`
 > **依赖规格**：`docs/superpowers/specs/2026-07-16-server-notice-admin-design.md`
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
