@@ -44,6 +44,15 @@ function extractBody(src, startIdx) {
   return null;
 }
 
+// 精确提取路由代码块
+function extractRouteBlock(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker);
+  if (start < 0) return null;
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  if (end < 0) return source.slice(start);
+  return source.slice(start, end);
+}
+
 // ---- 沙箱构建 ----
 function buildSubmitSandbox(fetchResponse) {
   const capture = {
@@ -428,48 +437,58 @@ test('B36. 输出 images 始终为数组且无字符串残留', () => {
 });
 
 // ===========================================================================
-// C. 后端公开接口结构测试
+// C. 后端公开接口结构测试（精确路由块）
 // ===========================================================================
 console.log('\n--- C. 后端公开接口结构测试 ---');
 
+const publicGetRoute = extractRouteBlock(SERVER_JS,
+  "app.get('/api/requests'",
+  '// ---- 玩家提交建议');
+const publicPostRoute = extractRouteBlock(SERVER_JS,
+  "app.post('/api/requests'",
+  '// ---- 投票');
+
+// GET SELECT 字段段（从 SELECT 到 FROM requests）
+const getSelectIdx = (publicGetRoute || '').indexOf('SELECT');
+const getFromIdx = (publicGetRoute || '').indexOf('FROM requests');
+const getSelectBlock = getSelectIdx >= 0 && getFromIdx > getSelectIdx
+  ? publicGetRoute.slice(getSelectIdx, getFromIdx) : '';
+
 test('C37. GET SELECT 包含 contact', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var selEnd = SERVER_JS.indexOf('FROM requests', idx);
-  var selBlock = SERVER_JS.slice(idx, selEnd);
-  assert.ok(selBlock.includes('contact'), 'SELECT 缺 contact');
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  assert.ok(getSelectBlock.includes('contact'), 'SELECT 缺 contact');
 });
 
 test('C38. GET SELECT 包含 images', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var selEnd = SERVER_JS.indexOf('FROM requests', idx);
-  var selBlock = SERVER_JS.slice(idx, selEnd);
-  assert.ok(selBlock.includes('images'), 'SELECT 缺 images');
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  assert.ok(getSelectBlock.includes('images'), 'SELECT 缺 images');
 });
 
 test('C39. GET SELECT 包含 reject_reason', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var selEnd = SERVER_JS.indexOf('FROM requests', idx);
-  var selBlock = SERVER_JS.slice(idx, selEnd);
-  assert.ok(selBlock.includes('reject_reason'), 'SELECT 缺 reject_reason');
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  assert.ok(getSelectBlock.includes('reject_reason'), 'SELECT 缺 reject_reason');
 });
 
 test('C40. GET SELECT 包含 admin_reply', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var selEnd = SERVER_JS.indexOf('FROM requests', idx);
-  var selBlock = SERVER_JS.slice(idx, selEnd);
-  assert.ok(selBlock.includes('admin_reply'), 'SELECT 缺 admin_reply');
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  assert.ok(getSelectBlock.includes('admin_reply'), 'SELECT 缺 admin_reply');
 });
 
-test('C41. GET 返回前遍历 items 解析 images', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var handler = SERVER_JS.slice(idx, idx + 4000);
-  assert.ok(handler.includes('JSON.parse') || handler.includes('.map('), '未在 GET 中解析 images');
+test('C41. GET 遍历结果并 JSON.parse images', () => {
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  // 必须同时包含对 items 的遍历和 JSON.parse(item.images)
+  const hasIterate = publicGetRoute.includes('items.forEach') || publicGetRoute.includes('items.map');
+  const hasParse = publicGetRoute.includes('JSON.parse') && (publicGetRoute.includes('.images') || publicGetRoute.includes('images'));
+  assert.ok(hasIterate && hasParse, 'GET 路由中缺少遍历或 JSON.parse images');
 });
 
-test('C42. 解析失败回退空数组', () => {
-  var idx = SERVER_JS.indexOf("app.get('/api/requests'");
-  var handler = SERVER_JS.slice(idx, idx + 4000);
-  assert.ok(handler.includes('catch') || handler.includes('|| []'), 'images 解析未安全回退');
+test('C42. GET images 解析有 try/catch 安全回退', () => {
+  assert.ok(publicGetRoute, '未找到公开 GET 路由');
+  const hasTry = publicGetRoute.includes('try');
+  const hasCatch = publicGetRoute.includes('catch');
+  const hasParse = publicGetRoute.includes('JSON.parse');
+  const hasFallback = publicGetRoute.includes('= []') || publicGetRoute.includes('=[]');
+  assert.ok(hasTry && hasCatch && hasParse && hasFallback, '缺少 try + catch + JSON.parse + =[] 回退');
 });
 
 test('C43. schema 未修改', () => {
@@ -478,17 +497,20 @@ test('C43. schema 未修改', () => {
   assert.ok(SCHEMA_SQL.includes('reject_reason TEXT'), 'reject_reason 列丢失');
 });
 
-test('C44. POST 接受 content', () => {
-  var idx = SERVER_JS.indexOf("app.post('/api/requests'");
-  var postBlock = SERVER_JS.slice(idx, idx + 2000);
-  assert.ok(postBlock.includes('content'), 'POST 未接受 content');
+test('C44. POST 接受 content/images', () => {
+  assert.ok(publicPostRoute, '未找到公开 POST 路由');
+  // 解构 content 和 images
+  assert.ok(publicPostRoute.includes('content'), 'POST 未解构 content');
+  assert.ok(publicPostRoute.includes('images'), 'POST 未解构 images');
+  // INSERT 写入 content 和 images
+  assert.ok(publicPostRoute.includes('INSERT'), 'POST 无 INSERT');
+  assert.ok(publicPostRoute.includes('JSON.stringify(images'), 'POST 未 JSON.stringify images');
 });
 
 test('C45. POST 写入 images 并返回 id', () => {
-  var idx = SERVER_JS.indexOf("app.post('/api/requests'");
-  var postBlock = SERVER_JS.slice(idx, idx + 2000);
-  assert.ok(postBlock.includes('images'), 'POST 未写 images');
-  assert.ok(postBlock.includes('lastInsertRowid'), 'POST 未返回 id');
+  assert.ok(publicPostRoute, '未找到公开 POST 路由');
+  assert.ok(publicPostRoute.includes('JSON.stringify(images'), 'POST 未序列化 images');
+  assert.ok(publicPostRoute.includes('lastInsertRowid'), 'POST 未返回 lastInsertRowid');
 });
 
 // ===========================================================================
@@ -499,13 +521,23 @@ console.log('\n--- D. 数据加载接线测试 ---');
 test('D46. loadPublicBackendConfig 标准化 requests', () => {
   var fn = extractFn(MAIN_JS, 'loadPublicBackendConfig');
   assert.ok(fn, 'loadPublicBackendConfig 不存在');
-  assert.ok(fn.includes('normalizeRequestItem') || fn.includes('normalize'), '未引用标准化');
+  assert.ok(
+    fn.includes('.map(normalizeRequestItem)') ||
+    fn.includes('.map(item => normalizeRequestItem(item))') ||
+    fn.includes('.map(function') && fn.includes('normalize'),
+    'loadPublicBackendConfig 未对 requests 调用 normalizeRequestItem'
+  );
 });
 
-test('D47. 管理员加载调用标准化或统一入口', () => {
-  var fn = extractFn(MAIN_JS, 'loadFullBackendConfig') || extractFn(MAIN_JS, 'renderRequestManagePanel');
-  if (fn) assert.ok(fn.includes('normalizeRequestItem') || fn.includes('normalize') || fn.includes('content'), '未引用标准化');
-  else assert.ok(MAIN_JS.includes('normalizeRequestItem'), '无管理员加载函数但全局有 normalizeRequestItem');
+test('D47. loadFullBackendConfig 标准化 requests', () => {
+  var fn = extractFn(MAIN_JS, 'loadFullBackendConfig');
+  assert.ok(fn, 'loadFullBackendConfig 不存在');
+  assert.ok(
+    fn.includes('.map(normalizeRequestItem)') ||
+    fn.includes('.map(item => normalizeRequestItem(item))') ||
+    fn.includes('.map(function') && fn.includes('normalize'),
+    'loadFullBackendConfig 未对 requests 调用 normalizeRequestItem'
+  );
 });
 
 test('D48. renderRequests 保留 data-open-image', () => {
