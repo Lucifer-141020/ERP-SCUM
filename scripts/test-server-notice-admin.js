@@ -934,18 +934,21 @@ test('css', 'C06. 手机端后台保存按钮 min-height≥44px', function() {
   var ms = MAIN_CSS.indexOf('@media (max-width: 767px)');
   assert.ok(ms !== -1, '未找到 @media');
   var mb = MAIN_CSS.slice(ms, ms + 5000);
-  assert.ok(mb.includes('min-height:44px') || mb.includes('min-height: 44px'), '手机无 44px');
+  assert.ok(/#saveServerNotice\s*\{[^}]*min-height\s*:\s*44px/i.test(mb), '手机保存按钮无 44px');
 });
 test('css', 'C07. 横屏 coarse 后台保存按钮 min-height≥44px', function() {
   var li = MAIN_CSS.indexOf('@media (max-height: 450px) and (pointer: coarse)');
-  if (li >= 0) {
-    var lb = MAIN_CSS.slice(li, li + 2000);
-    assert.ok(lb.includes('min-height:44px') || lb.includes('min-height: 44px'), '横屏无 44px');
-  }
+  assert.ok(li >= 0, '未找到横屏 coarse 媒体查询');
+  var lb = MAIN_CSS.slice(li, li + 2000);
+  assert.ok(/#saveServerNotice\s*\{[^}]*min-height\s*:\s*44px/i.test(lb), '横屏保存按钮无 44px');
 });
 test('css', 'C08. 通知面板宽度受视口约束', function() {
   var block = extractCssBlock(MAIN_CSS, '.notice-floating');
   assert.ok(block && (block.includes('max-width') || block.includes('width')), '通知面板无宽度约束');
+  var mobileStart = MAIN_CSS.indexOf('@media (max-width: 680px)');
+  var mobileBlock = MAIN_CSS.slice(mobileStart, mobileStart + 1200);
+  assert.ok(mobileStart >= 0 && /\.notice-floating\s*\{[^}]*position\s*:\s*fixed/i.test(mobileBlock), '手机通知面板未保持浮动');
+  assert.ok(!/\.notice-floating-close\s*\{[^}]*display\s*:\s*none/i.test(mobileBlock), '手机关闭按钮被隐藏');
 });
 test('css', 'C09. 暗色主题后台输入框可读', function() {
   var darkIdx = MAIN_CSS.indexOf('[data-theme="dark"]');

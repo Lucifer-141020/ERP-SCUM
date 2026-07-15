@@ -1058,22 +1058,12 @@
 
     @media (max-width: 680px) {
       .notice-floating {
-        position: static;
-        width: auto;
-        max-width: none;
-        margin: 0 16px;
-      }
-
-      .notice-floating-bubble {
-        display: none !important;
-      }
-
-      .notice-floating.collapsed .notice-floating-panel {
-        display: block;
-      }
-
-      .notice-floating-close {
-        display: none;
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: calc(100vw - 32px);
+        max-width: 320px;
+        margin: 0;
       }
     }
 
@@ -4494,6 +4484,10 @@
         min-height: 44px;
       }
 
+      #saveServerNotice {
+        min-height: 44px;
+      }
+
       /* 间距 ≥ 8px 防止误触 */
       .nav { gap: 12px; }
       .btn + .btn { margin-left: 8px; }
@@ -4521,6 +4515,7 @@
       }
       .signup-cta { min-height: 44px; }
       .mini-btn { min-height: 44px; }
+      #saveServerNotice { min-height: 44px; }
     }
 
     /* 横屏适配 */
