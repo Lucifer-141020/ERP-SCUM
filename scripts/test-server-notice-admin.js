@@ -737,8 +737,10 @@ test('js', 'J40. applyFullBackendConfig 完整断言链', async function() {
   assert.strictEqual(sn.version, 'v40', 'version 不匹配');
   // 9. #noticeTitle.textContent
   assert.strictEqual(sb.els.noticeTitle.textContent, '后台通知', 'noticeTitle 未更新');
-  // 10–11. #noticeLines children
-  assert.ok(sb.els.noticeLines.children.length >= 1, 'noticeLines 无 children');
+  // 10–11. #noticeLines children — 两条通知精确验证
+  assert.strictEqual(sb.els.noticeLines.children.length, 2, 'noticeLines 子节点数量不为 2');
+  assert.strictEqual(sb.els.noticeLines.children[0].textContent, '第一条', 'noticeLines 第一条内容不匹配');
+  assert.strictEqual(sb.els.noticeLines.children[1].textContent, '第二条', 'noticeLines 第二条内容不匹配');
   // 12–14. 表单回填
   assert.strictEqual(sb.els.editNoticeEnabled.checked, true, 'editNoticeEnabled 未回填');
   assert.strictEqual(sb.els.editNoticeTitle.value, '后台通知', 'editNoticeTitle 未回填');
