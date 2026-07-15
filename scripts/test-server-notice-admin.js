@@ -646,20 +646,50 @@ test('js', 'J31. textarea 按 CRLF/LF 拆分并过滤空行', async function() {
   var sb = buildNoticeSandbox();
   if (!sb.fns.fnAvailable.saveServerNotice) throw new Error('saveServerNotice 不存在');
   sb.els.editNoticeLines.value = '第一行\r\n  \r\n第二行\n 第三行 ';
+  sb.els.editNoticeTitle.value = '测试通知';
+  sb.els.editNoticeEnabled.checked = true;
   sb.injectFetchSuccess({ok:true, status:200, json:function(){return Promise.resolve({code:200,data:{}});}});
   await sb.fns.saveServerNotice();
-  var body = sb.getFetchCalls().length > 0 ? sb.getFetchCalls()[0].opts.body : '';
-  var parsed = JSON.parse(body);
-  assert.ok(JSON.stringify(parsed.lines) === JSON.stringify(['第一行','第二行','第三行']), 'lines 不匹配: ' + JSON.stringify(parsed.lines));
+  var calls = sb.getFetchCalls();
+  assert.ok(calls.length > 0, '未发起保存请求');
+  var fetchCall = calls[0];
+  // 5. 请求 method === 'PUT'
+  assert.ok(fetchCall.opts && fetchCall.opts.method === 'PUT', '请求 method 不为 PUT: ' + (fetchCall.opts && fetchCall.opts.method));
+  // 6. 请求 URL === '/api/admin/config'
+  assert.ok(fetchCall.url === '/api/admin/config', '请求 URL 不为 /api/admin/config: ' + fetchCall.url);
+  // 7. content-type === 'application/json'
+  var ct = fetchCall.opts && fetchCall.opts.headers && (fetchCall.opts.headers['Content-Type'] || fetchCall.opts.headers['content-type']);
+  assert.ok(ct && String(ct).indexOf('application/json') >= 0, 'content-type 非 application/json: ' + ct);
+  // 修正：解析 fetchCall.opts.body，不再直接读 parsed.lines
+  var body = JSON.parse(fetchCall.opts.body);
+  // 1. body.key === 'server_notice'
+  assert.ok(body.key === 'server_notice', 'body.key 不为 server_notice: ' + body.key);
+  // 2. body.value 存在且为对象
+  assert.ok(body.value && typeof body.value === 'object' && !Array.isArray(body.value), 'body.value 不存在或非对象');
+  // 3. body.value.lines 严格等于 ['第一行','第二行','第三行']
+  assert.ok(JSON.stringify(body.value.lines) === JSON.stringify(['第一行','第二行','第三行']), 'value.lines 不匹配: ' + JSON.stringify(body.value.lines));
+  // 4. 不得使用顶层 lines 冒充配置 value
+  assert.ok(!('lines' in body), 'body 顶层出现 lines，冒充 config value');
 });
-test('js', 'J32. 保存时生成非空 version', async function() {
+test('js', 'J32. 保存时生成非空 version 且位于 value 内', async function() {
   var sb = buildNoticeSandbox();
   if (!sb.fns.fnAvailable.saveServerNotice) throw new Error('saveServerNotice 不存在');
   sb.setServerNotice({enabled:true, title:'T', lines:['a'], version:'old-v'});
   sb.injectFetchSuccess({ok:true, status:200, json:function(){return Promise.resolve({code:200,data:{}});}});
   await sb.fns.saveServerNotice();
-  var body = sb.getFetchCalls().length > 0 ? JSON.parse(sb.getFetchCalls()[0].opts.body) : {};
-  assert.ok(body.version && body.version !== 'old-v', 'version 未更新或仍为旧值: ' + body.version);
+  var calls = sb.getFetchCalls();
+  assert.ok(calls.length > 0, '未发起保存请求');
+  var body = JSON.parse(calls[0].opts.body);
+  // 1. body.key === 'server_notice'
+  assert.ok(body.key === 'server_notice', 'body.key 不为 server_notice: ' + body.key);
+  // 4. 顶层 body.version 不作为配置版本
+  assert.ok(!('version' in body), 'body 顶层出现 version，应位于 value 内部');
+  // 2. body.value.version 是非空字符串
+  assert.ok(typeof body.value.version === 'string' && body.value.version.length > 0, 'value.version 非非空字符串: ' + body.value.version);
+  // 3. body.value.version !== 'old-v'
+  assert.ok(body.value.version !== 'old-v', 'value.version 仍为旧值: ' + body.value.version);
+  // 5. version 位于 value 对象内部
+  assert.ok(body.value && typeof body.value === 'object' && 'version' in body.value, 'version 未位于 value 对象内部');
 });
 test('js', 'J33. 普通页面加载不生成新 version', async function() {
   var sb = buildNoticeSandbox();
@@ -678,15 +708,43 @@ test('js', 'J34. 保存成功后才更新内存 serverNotice', async function() 
   await savePromise;
   assert.ok(sb.getServerNotice() && sb.getServerNotice().title !== '旧', '保存成功后内存未更新');
 });
-test('js', 'J35. 保存成功后重新渲染并显示成功提示', async function() {
+test('js', 'J35. 保存成功后更新内存并重新渲染', async function() {
   var sb = buildNoticeSandbox();
   if (!sb.fns.fnAvailable.saveServerNotice) throw new Error('saveServerNotice 不存在');
   sb.setServerNotice({enabled:true, title:'T', lines:['a'], version:'v1'});
+  // 执行保存前设置表单
+  sb.els.editNoticeEnabled.checked = true;
+  sb.els.editNoticeTitle.value = '保存后的通知';
+  sb.els.editNoticeLines.value = '第一条\n第二条';
   sb.injectFetchSuccess({ok:true, status:200, json:function(){return Promise.resolve({code:200,data:{}});}});
   await sb.fns.saveServerNotice();
+  // 1. fetch 只调用1次
   assert.ok(sb.getFetchCalls().length === 1, 'PUT 次数不为1: ' + sb.getFetchCalls().length);
+  // 2. 成功 Toast 恰好1次 / 3. Toast 类型为 success
   var successToasts = sb.getToastCalls().filter(function(t){return t.type === 'success';});
   assert.ok(successToasts.length === 1, '成功 toast 不为1次: ' + successToasts.length);
+  // 4. serverNotice 已更新为表单产生的新配置
+  var sn = sb.getServerNotice();
+  assert.ok(sn, 'serverNotice 不存在');
+  assert.ok(sn.title === '保存后的通知', 'title 未更新为表单值: ' + sn.title);
+  assert.ok(Array.isArray(sn.lines) && sn.lines.length === 2, 'lines 未更新为两条: ' + (sn.lines && sn.lines.length));
+  // 5. #noticeTitle.textContent 与更新后的 serverNotice.title 一致
+  assert.ok(sb.els.noticeTitle && sb.els.noticeTitle.textContent === sn.title, 'noticeTitle.textContent 不一致: ' + (sb.els.noticeTitle && sb.els.noticeTitle.textContent));
+  assert.ok(sb.els.noticeTitle.textContent === '保存后的通知', 'noticeTitle 未显示保存后的通知');
+  // 6. #noticeLines.children.length 与 serverNotice.lines.length 一致
+  assert.ok(sb.els.noticeLines.children.length === sn.lines.length, 'noticeLines 子节点数不一致: ' + sb.els.noticeLines.children.length + ' vs ' + sn.lines.length);
+  assert.ok(sb.els.noticeLines.children.length === 2, 'noticeLines 子节点不为2: ' + sb.els.noticeLines.children.length);
+  // 7. 至少存在一条通知内容
+  assert.ok(sn.lines.length >= 1, '无任何通知内容');
+  // 8. 第一个 li.textContent 与 serverNotice.lines[0] 一致
+  assert.ok(sb.els.noticeLines.children[0] && sb.els.noticeLines.children[0].textContent === sn.lines[0], '第一条 li 内容不一致: ' + (sb.els.noticeLines.children[0] && sb.els.noticeLines.children[0].textContent));
+  assert.ok(sb.els.noticeLines.children[0].textContent === '第一条', '第一条内容不匹配');
+  // 9. #saveNoticeHint 显示成功状态或成功文案
+  var hint = sb.els.saveNoticeHint;
+  var hintOk = hint && (hint.classList.contains('success') || (hint.textContent && hint.textContent.length > 0));
+  assert.ok(hintOk, 'saveNoticeHint 未显示成功状态/文案');
+  // 10. 保存按钮恢复 disabled=false
+  assert.ok(sb.els.saveServerNotice && sb.els.saveServerNotice.disabled === false, '保存按钮未恢复 disabled=false');
 });
 test('js', 'J36. 保存失败保留表单 title/lines/enabled', async function() {
   var sb = buildNoticeSandbox();
