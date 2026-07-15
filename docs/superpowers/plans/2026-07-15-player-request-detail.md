@@ -25,8 +25,9 @@
    - 玩家账号系统
    - `dist/`
    - 验收截图目录
+   - `scripts/check-frontend-sync.js`（不得修改来迁就本功能）
 4. **功能阶段预计修改**：`frontend/js/main.js`、`frontend/css/main.css`。
-5. **测试阶段新增**：`scripts/test-request-detail.js`。
+5. **测试阶段新增**：`scripts/test-request-detail.js`（支持 `--group=js` / `--group=css` / `--group=all`）。
 6. **最终文档阶段才允许修改**：`代码地图.md`、`更新日志.md`。
 7. **不得清理、覆盖、还原或提交工作区已有无关改动**。
 8. **每个修改任务开始前必须创建带时间戳备份**，备份不提交 Git。
@@ -57,6 +58,7 @@
 | `frontend/css/main.css` | `4424-4430` | `@media (max-height:450px) and (pointer:coarse)` 内 `44px` |
 | `frontend/css/main.css` | `4561-4568` | `[data-theme="dark"] .request-card` / `.admin-note` 暗色令牌 |
 | `frontend/index.html` | `153-176` | `#requests` 静态容器（`requestTabs` / `requestSearch` / `requestCategoryFilters` / `requestGrid`），卡片由 JS 动态生成，无需改动 |
+| `scripts/test-activity-signup-ux.js` | 全文 | **真实沙箱测试范本**：`extractFunction` + `new Function` 提取并真实执行函数 |
 
 > 说明：`.mini-btn` 在手机端（≤767px）与横屏粗指针下已是 `min-height:44px`，因此“查看详情”按钮复用 `.mini-btn` 即满足 ≥44px 触控高度，无需额外样式（与设计规格第 13 节一致）。
 
@@ -67,58 +69,139 @@
 
 ---
 
-## 一、Task 1：增加玩家建议详情红灯测试
+## 一、Task 1：增加玩家建议详情红灯测试（三层测试 + 分组运行）
 
 **Files（只修改）：**
 - `scripts/test-request-detail.js`（新建）
 
 **Interfaces：**
-- 纯 Node `fs` + `assert`，风格参照 `scripts/test-request-manage.js`。
-- 读取 `frontend/js/main.js` 与 `frontend/css/main.css` 全文做静态/结构断言。
-- 暴露 `test(name, fn)` 与 `passed` 计数，失败置 `process.exitCode = 1`。
+- 纯 Node `fs` + `assert`，风格参照 `scripts/test-activity-signup-ux.js`：用 `extractFunction` 从 `frontend/js/main.js` 提取纯函数后，在 `new Function` 沙箱中**真实执行**。
+- 同时读取 `frontend/js/main.js` 与 `frontend/css/main.css` 做结构断言。
+- 支持命令行分组：`--group=js` / `--group=css` / `--group=all`（默认 `all`）。
+- `test(group, name, fn)` 登记用例；运行器只执行匹配分组的用例；任一失败置 `process.exitCode = 1`，**不得在任何位置强制将其改回 0**。
+
+**测试三层（对应设计规格 32 项要求）：**
+
+- **A. JS 结构静态测试（group=js）**：检查 `main.js` 中按钮/属性/状态变量的存在性（A.1–A.7）。
+- **B. JavaScript 行为测试（group=js）**：在沙箱中**真实执行** `getRequestAdminDetail` / `buildRequestDetail` / `toggleRequestDetail` / `resetExpandedRequest` / `renderRequests`，验证展开、互斥、清空、字段映射、转义、空值、无有效 ID 安全等（B.1–B.24）。**不得使用以下方式代替真实执行**：只检查函数名存在 / 只检查中文文案存在 / 只检查 if 分支字符串存在 / 只检查 `expandedRequestId === requestId` 字符串存在。
+- **C. CSS 结构静态测试（group=css）**：检查 `main.css` 中 `.request-detail` 相关样式、暗色覆盖、触控 44px、换行与不溢出（C.1–C.7）。
+- **浏览器实际验收（29 项）**：**不在本测试文件**，属于 Task 4。控制台错误、真实布局、真实触控矩形等必须由浏览器验收覆盖，不得在本文件冒充静态通过。
 
 **Steps：**
-- [ ] 1. 创建 `scripts/test-request-detail.js`，头部注释说明：纯 Node、读取 `frontend/js/main.js` 与 `frontend/css/main.css`、验证玩家建议详情的 32 项要求（断言总数在报告末尾列出）。
-- [ ] 2. 读取两个源文件并缓存为字符串 `JS` 与 `CSS`。
-- [ ] 3. 编写断言分组（明确每项断言对应的规格编号与搜索串）：
-  - [ ] 3.1 状态变量：`JS` 含 `expandedRequestId`（规格 8/10/11-14）。
-  - [ ] 3.2 详情按钮模板：`JS` 含 `data-action="toggle-request-detail"`（规格 1、2、9、31）。
-  - [ ] 3.3 按钮位于 `.vote-actions` 内最左侧：模板中 `toggle-request-detail` 出现在 `vote-request` 之前（规格 2）。
-  - [ ] 3.4 `data-request-id` 由 `getRequestId` 取得：`JS` 含 `data-request-id="${` 与 `getRequestId(item, index)` 调用（规格 9、31）。
-  - [ ] 3.5 `aria-expanded`、`aria-controls`：`JS` 含 `aria-expanded=` 与 `aria-controls="request-detail-`（规格 6、7）。
-  - [ ] 3.6 稳定详情区 `id`：`JS` 含 `id="request-detail-${`（规格 7、31）。
-  - [ ] 3.7 文案切换：`JS` 含 `查看详情` 与 `收起详情`（规格 5、8）。
-  - [ ] 3.8 同时仅展开一张：`JS` 含 `expandedRequestId === requestId` 比较逻辑与切换分支（规格 9、10）。
-  - [ ] 3.9 三类筛选/搜索清空：`JS` 含在 `requestSearch` 监听、`requestTabs` 点击、`requestCategoryFilters` 点击处调用 `resetExpandedRequest()`（或等价 `expandedRequestId = null`）（规格 11、12、13、15）。
-  - [ ] 3.10 数据重载清空：`JS` 含在 `renderAll()` 或 requests 重新赋值处调用 `resetExpandedRequest()`（规格 15）。
-  - [ ] 3.11 普通重绘保留：`renderRequests()` 内部不得无条件写 `expandedRequestId = null`（规格 14）。（反向断言：在 `renderRequests` 函数切片内不应出现 `expandedRequestId = null`）
-  - [ ] 3.12 `adminReply` / `rejectReason` 映射：`JS` 含 `getRequestAdminDetail(` 或等价函数名，且含 `完成说明`、`拒绝原因`、`管理员回复` 三标题（规格 18-20）。
-  - [ ] 3.13 空管理员说明不渲染：函数逻辑含当字段为空返回 `null` 的分支（规格 21）。
-  - [ ] 3.14 `created_at` 缺失不渲染：`JS` 含对 `item.created_at` 的存在性判断（规格 17）。
-  - [ ] 3.15 `images` 缺失不渲染：`JS` 含 `Array.isArray(item.images) && item.images.length` 判断（规格 23）。
-  - [ ] 3.16 无有效 ID 安全降级：`JS` 含当 `requestId` 为空时跳过按钮与详情区、列表不崩溃的分支（规格 31）。
-  - [ ] 3.17 HTML 与属性转义：`JS` 含 `escapeHtml(item.text)` 与 `escapeAttr(requestId)`（或 `escapeAttr` 包裹 `id`/`src`）（规格 16、22）。
-  - [ ] 3.18 移动端/横屏 44px：`CSS` 含 `.mini-btn` 在 `@media (max-width:767px)` 与 `@media (max-height:450px) and (pointer:coarse)` 下的 `min-height:44px`（规格 26、27、28）。
-  - [ ] 3.19 暗色主题样式：`CSS` 含 `[data-theme="dark"]` 下与 `.request-detail` 或 `.admin-note` 相关的可读配色（规格 29）。
-  - [ ] 3.20 原有投票/讨论操作仍存在：`JS` 含 `data-action="vote-request"` 与 `讨论` 按钮模板（规格 25）。
-  - [ ] 3.21 生产页暂未同步：`JS` 或测试断言确认存在 `erp14-server-showcase.html` 且本功能不修改它；`check-frontend-sync.js` 允许报预期差异（规格 32）。
-  - [ ] 3.22 控制台无 JS 错误 / 不出现 undefined、null：通过静态检查 `JS` 不得直接拼接 `undefined` / `null` 字面量到详情模板（规格 22、30）。
-- [ ] 4. 报告末尾打印 `通过 X / 总计 Y` 与 `断言总数：Z`（Z 为所有 `test()` 调用中 `assert.ok/StrictEqual` 的实际条数；若合并断言，Z 须等于合并后真实断言数）。
+- [ ] 1. 创建 `scripts/test-request-detail.js`，头部注释说明：纯 Node、读取 `frontend/js/main.js` 与 `frontend/css/main.css`、支持 `--group` 分组、三层测试覆盖 32 项要求。
+- [ ] 2. 实现分组解析：`const GROUP = (process.argv.find(a => a.startsWith('--group=')) || '--group=all').slice(8);` 仅允许 `js|css|all`，非法值 `process.exit(1)`。
+- [ ] 3. 实现 `extractFunction(src, name)`（与 `test-activity-signup-ux.js` 一致：尊重字符串内括号、保留 `async`）。
+- [ ] 4. 实现 `test(group, name, fn)`：按 `group` 登记到 `jsTests` 或 `cssTests`；运行器在末尾执行匹配分组，打印 `  ✓ / ✗`，失败 `process.exitCode = 1`；最后按分组打印 `通过 X / 总计 Y`，不得把失败改成提示。
+- [ ] 5. **JS 结构测试 A.1–A.7**（断言 `main.js` 字符串/结构）：
+  - [ ] A.1 `main.js` 含 `let expandedRequestId`（或 `var expandedRequestId`）声明。
+  - [ ] A.2 `main.js` 含 `data-action="toggle-request-detail"`。
+  - [ ] A.3 `main.js` 含 `data-request-id=`（详情按钮写入请求 ID）。
+  - [ ] A.4 `main.js` 含 `aria-expanded=`。
+  - [ ] A.5 `main.js` 含 `aria-controls=`。
+  - [ ] A.6 `main.js` 含 `id="request-detail-`（稳定详情区 id 结构）。
+  - [ ] A.7 `main.js` 含 `查看详情` 与 `收起详情` 文案。
+- [ ] 6. **CSS 结构测试 C.1–C.7**（断言 `main.css` 字符串/结构）：
+  - [ ] C.1 `main.css` 含 `.request-detail` 选择器。
+  - [ ] C.2 `.request-detail` 含清晰分隔（`border-top` 或 `margin-top` 且非 0）。
+  - [ ] C.3 `main.css` 含 `[data-theme="dark"] .request-detail` 暗色覆盖。
+  - [ ] C.4 手机端 `@media (max-width:767px)` 内 `.mini-btn` 含 `min-height:44px`（详情按钮复用）。
+  - [ ] C.5 横屏 `@media (max-height:450px) and (pointer:coarse)` 内 `.mini-btn` 含 `min-height:44px`。
+  - [ ] C.6 `.request-detail-value` 含 `word-break` 或 `white-space:pre-wrap`（长文本换行）。
+  - [ ] C.7 `.request-detail-images` 与 `.request-detail-img` 选择器存在（图片不溢出基础）。
+- [ ] 7. **行为沙箱 `buildRequestSandbox(seed)`**（真实执行核心）：
+  ```js
+  function buildRequestSandbox(seed) {
+    const helpers = [
+      extractFunction(MAIN_JS, 'getRequestId'),
+      extractFunction(MAIN_JS, 'escapeHtml'),
+      extractFunction(MAIN_JS, 'escapeAttr'),
+      extractFunction(MAIN_JS, 'normalizeRequestStatus'),
+      extractFunction(MAIN_JS, 'requestLabel'),
+      extractFunction(MAIN_JS, 'requestCategoryLabel'),
+      extractFunction(MAIN_JS, 'getRequestAdminDetail'),
+      extractFunction(MAIN_JS, 'buildRequestDetail'),
+      extractFunction(MAIN_JS, 'resetExpandedRequest'),
+      extractFunction(MAIN_JS, 'toggleRequestDetail'),
+      extractFunction(MAIN_JS, 'renderRequests')
+    ].join('\n');
+    const wrapper = `
+      let requests = ${JSON.stringify(seed.requests)};
+      let requestVotes = ${JSON.stringify(seed.requestVotes || {})};
+      let expandedRequestId = null;
+      const captured = { requestGrid: '' };
+      // renderRequests 实际引用的辅助函数提供 no-op mock（按真实源码补齐列表）
+      const getPlayerVote = () => ({ agree: 0, disagree: 0 });
+      const applyIcons = () => {};
+      const loadRequestImages = () => {};
+      const document = {
+        getElementById: (id) => {
+          if (id === 'requestGrid') {
+            const b = { _html: '' };
+            Object.defineProperty(b, 'innerHTML', { get(){return this._html;}, set(v){this._html=v; captured.requestGrid=v;} });
+            return b;
+          }
+          return { innerHTML:'', value:'', textContent:'', classList:{add(){},remove(){}}, setAttribute(){}, addEventListener(){} };
+        },
+        querySelectorAll: () => []
+      };
+      ${helpers}
+      return {
+        get expandedRequestId(){ return expandedRequestId; },
+        get grid(){ return captured.requestGrid; },
+        render: () => { renderRequests(); return captured.requestGrid; },
+        toggle: (id) => toggleRequestDetail(id),
+        reset: () => resetExpandedRequest(),
+        adminDetail: (item, status) => getRequestAdminDetail(item, status),
+        build: (item, id) => buildRequestDetail(item, id)
+      };
+    `;
+    return new Function('Date','Math','JSON','console', wrapper)(Date, Math, JSON, console);
+  }
+  ```
+  > 注：`renderRequests` 可能引用其它辅助函数（如 `getPlayerVote`、`applyIcons`、`loadRequestImages` 等），沙箱须为其提供 no-op mock；实现 Task 1 红灯测试时按真实源码补齐 mock 列表，确保绿灯阶段能真实跑通渲染逻辑。
+- [ ] 8. **行为测试 B.1–B.24**（全部在沙箱中真实执行，红色阶段因函数不存在而失败）：
+  - [ ] B.1 沙箱初始化后 `api.expandedRequestId === null`（默认全收起）。
+  - [ ] B.2 `api.toggle('X')` 后 `api.expandedRequestId === 'X'`，且 `api.grid` 含 `id="request-detail-X"` 且**不含**该区 `hidden`。
+  - [ ] B.3 再 `api.toggle('X')` 后 `api.expandedRequestId === null`，且 `api.grid` 该区含 `hidden`。
+  - [ ] B.4 `api.toggle('X')` 后 `api.toggle('Y')` 后 `api.expandedRequestId === 'Y'`，且 X 区含 `hidden`。
+  - [ ] B.5 同时仅一张：`api.toggle('X'); api.toggle('Y')` 后，`api.grid` 中不含 `hidden` 的 `request-detail` 区恰好 1 个。
+  - [ ] B.6 状态筛选清空：展开 `api.toggle('X')` 后真实执行 `api.reset()`，断言 `api.expandedRequestId === null`；并源码扫描 `requestTabs` 点击处理区（约 3966-3972 行）含 `resetExpandedRequest()` 调用（接线保证，作为真实执行机制的补充）。
+  - [ ] B.7 分类筛选清空：同 B.6 机制，扫描 `requestCategoryFilters` 处理区（约 3973-3979 行）。
+  - [ ] B.8 搜索变化清空：同 B.6 机制，扫描 `requestSearch` 监听区（约 3965 行）。
+  - [ ] B.9 数据重载清空：同 B.6 机制，扫描 `renderAll()` 处理区（约 4064-4080 行）。
+  - [ ] B.10 普通重绘保留：`api.toggle('X')` 展开后直接调用 `api.render()`（模拟投票后重绘），断言 `api.expandedRequestId` 仍为 `'X'` 且 X 区仍无 `hidden`。
+  - [ ] B.11 `api.adminDetail({status:'done',adminReply:'已修复'},'done')` 返回 `{label:'完成说明',value:'已修复'}`。
+  - [ ] B.12 `api.adminDetail({status:'pending',adminReply:'收到'},'pending')` 与 `planned` 返回 `{label:'管理员回复',value:'收到'}`。
+  - [ ] B.13 `api.adminDetail({status:'rejected',rejectReason:'不符合'},'rejected')` 返回 `{label:'拒绝原因',value:'不符合'}`。
+  - [ ] B.14 `api.adminDetail({status:'rejected',rejectReason:'',adminReply:'仍可参加'},'rejected')` 返回 `{label:'拒绝原因',value:'仍可参加'}`（回退真实 `adminReply`）。
+  - [ ] B.15 全部空值场景均返回 `null`：`{status:'done',adminReply:''}`、`{status:'rejected',rejectReason:'',adminReply:''}`、`{status:'pending',adminReply:''}`。
+  - [ ] B.16 `api.build({text:'内容',created_at:undefined,user:'A',category:'BUG',status:'pending'}, 'id1')` 输出**不含**「提交时间」行（无 `created_at`）。
+  - [ ] B.17 `api.build({text:'内容',images:undefined},'id2')` 与 `images:[]` 均**不含**图片区（`request-detail-images`）。
+  - [ ] B.18 无有效 ID 安全：seed 中某 item 使 `getRequestId` 返回空（注入缺 id 且无法生成的项），断言 `api.render()` 不抛错，且其它卡片正常出现在 `api.grid`。
+  - [ ] B.19 `api.render()` 结果字符串中**不含** `undefined` 与 `null` 字面量。
+  - [ ] B.20 转义：seed `text` 含 `<script>` 时，`api.grid` 中该内容被转义（出现 `&lt;script&gt;` 或不出现原始 `<script>` 标签）。
+  - [ ] B.21 属性转义：`data-request-id` 与图片 `src` 经 `escapeAttr`（注入含 `"` 的 id 验证转义）。
+  - [ ] B.22 渲染文案：`done` 项输出含「完成说明」；`pending` 项含「管理员回复」；`rejected` 项含「拒绝原因」。
+  - [ ] B.23 管理员说明为 `null` 时 `api.build(...)` 输出不含「完成说明/拒绝原因/管理员回复」区块（对应 item 无说明）。
+  - [ ] B.24 原有操作结构：`api.render()` 输出含 `data-action="vote-request"` 与「讨论」按钮。
+- [ ] 9. 红灯阶段运行回归（不修改任何文件）：
+  ```bash
+  cd "C:\Users\Administrator\Desktop\SCUM用户网页"
+  node scripts/test-request-detail.js --group=js
+  node scripts/test-request-detail.js --group=css
+  node scripts/test-request-detail.js --group=all
+  echo "--- 回归 ---"
+  node scripts/test-request-manage.js
+  node scripts/test-home-structure.js
+  node scripts/test-mobile-touch-targets.js
+  node --check frontend/js/main.js
+  ```
 
-**Commands：**
-```bash
-cd "C:\Users\Administrator\Desktop\SCUM用户网页"
-node scripts/test-request-detail.js
-echo "--- 回归 ---"
-node scripts/test-request-manage.js
-node scripts/test-home-structure.js
-node scripts/test-mobile-touch-targets.js
-node --check frontend/js/main.js
-```
-
-**Expected：**
-- `node scripts/test-request-detail.js` 退出码非零（红灯），新详情断言失败；报告列出失败项（至少 3.1/3.2/3.5/3.6/3.7/3.9 等核心项失败）。
-- 回归脚本全部通过：`test-request-manage.js`、`test-home-structure.js`、`test-mobile-touch-targets.js` 通过；`node --check frontend/js/main.js` 语法通过。
+**Expected（红灯）：**
+- `--group=js`：退出码**非零**。`getRequestAdminDetail` / `buildRequestDetail` / `resetExpandedRequest` / `toggleRequestDetail` 尚未实现，`extractFunction` 抛错导致 B 全失败；A.1–A.7 所需结构（`expandedRequestId` 声明、`data-action="toggle-request-detail"` 等）在 `main.js` 尚不存在，A 全失败。
+- `--group=css`：退出码**非零**。`.request-detail` 等样式尚不存在，C 全失败。
+- `--group=all`：退出码**非零**。
+- 回归脚本全部通过：`test-request-manage.js` / `test-home-structure.js` / `test-mobile-touch-targets.js` 通过；`node --check frontend/js/main.js` 语法通过。
 - 不修改 `frontend/` 任何文件。
 
 **Git 暂存边界：**
@@ -212,7 +295,7 @@ test: define player request details
 - [ ] 2. 在状态声明区新增 `let expandedRequestId = null;`。
 - [ ] 3. 在 `getRequestId` 附近新增 `getRequestAdminDetail`、`requestDetailRow`、`buildRequestDetail`、`resetExpandedRequest`、`toggleRequestDetail`（签名与上面一致）。
 - [ ] 4. 修改 `renderRequests()`（`main.js` 2096-2138）：
-  - [ ] 4.1 在 `.map(({ item, index }) => {` 内部，用 `const requestId = getRequestId(item, index);` 取得稳定 ID（与 `getPlayerVote` 同款写法）。
+  - [ ] 4.1 在 `.map(({ item, index }) => {` 内部，用 `const requestId = getRequestId(item, index);` 取得稳定 ID。
   - [ ] 4.2 计算 `const isExpanded = expandedRequestId === requestId;`。
   - [ ] 4.3 构造详情按钮（仅当 `requestId` 有效）：
     ```js
@@ -242,27 +325,26 @@ test: define player request details
   - [ ] 6.2 `requestTabs` 点击（3970 处 `renderRequests();` 前）插入 `resetExpandedRequest();`
   - [ ] 6.3 `requestCategoryFilters` 点击（3977 处 `renderRequests();` 前）插入 `resetExpandedRequest();`
   - [ ] 6.4 数据重载：`renderAll()`（4064）开头（或 4074 `renderRequests()` 前）插入 `resetExpandedRequest();`
-- [ ] 7. 验证：
+- [ ] 7. 验证（见下方 Expected）：
   ```bash
   cd "C:\Users\Administrator\Desktop\SCUM用户网页"
   node --check frontend/js/main.js
-  node scripts/test-request-detail.js
+  node scripts/test-request-detail.js --group=js
+  node scripts/test-request-detail.js --group=css
+  node scripts/test-request-detail.js --group=all
   node scripts/test-request-manage.js
   node scripts/test-home-structure.js
   node scripts/test-mobile-touch-targets.js
   ```
-- [ ] 8. 本阶段预期：`node --check` 通过；`test-request-detail.js` 中 JS 相关断言全部通过（CSS 相关断言如 `.request-detail` 暗色类尚未存在可仍失败）；`test-request-manage.js` / `test-home-structure.js` / `test-mobile-touch-targets.js` 通过。
 
-**Commands：**
-```bash
-cd "C:\Users\Administrator\Desktop\SCUM用户网页"
-node --check frontend/js/main.js && node scripts/test-request-detail.js
-```
-
-**Expected：**
-- `node --check` 通过，无语法错误。
-- `test-request-detail.js` JS 断言通过、退出码 0（或仅余 CSS 类断言失败，不影响 JS 逻辑验收）。
-- 原有建议/首页/触控测试全绿，无回归。
+**Expected（验证结果，修正）：**
+1. `node --check frontend/js/main.js` → 退出码 **0**，无语法错误。
+2. `node scripts/test-request-detail.js --group=js` → **全部通过，退出码 0**（A 结构 + B 行为均转绿）。
+3. `node scripts/test-request-detail.js --group=css` → **预期仍失败**（CSS 尚未实现），退出码非零。
+4. `node scripts/test-request-detail.js --group=all` → **因 CSS 未实现，预期仍为非零**。
+5. 原有建议/首页/触控回归测试（test-request-manage / test-home-structure / test-mobile-touch-targets）通过。
+6. **只要 `--group=js` 仍失败，就不得提交 Task 2。**
+7. **不得写“整个专项测试通过”** —— CSS 分组尚未通过，仅可宣告“JS 分组通过”。
 
 **Git 暂存边界：**
 ```bash
@@ -321,13 +403,15 @@ feat: add player request detail interactions
   [data-theme="dark"] .request-detail-label { color: var(--text-500); }
   [data-theme="dark"] .request-detail-value { color: var(--text-200); }
   ```
-- [ ] 6. 移动端（≤767px）集成测试已在 Task 1 覆盖，本任务仅确认无需额外尺寸：320/375/414 下 `.request-detail-value` 通过 `word-break` / `pre-wrap` 正常换行，`.request-detail-images` 用 `flex-wrap` 不溢出，`.vote-actions` 沿用现有 `flex-wrap`。
+- [ ] 6. 移动端（≤767px）：320/375/414 下 `.request-detail-value` 通过 `word-break` / `pre-wrap` 正常换行，`.request-detail-images` 用 `flex-wrap` 不溢出，`.vote-actions` 沿用现有 `flex-wrap`。
 - [ ] 7. 横屏（`@media (max-height:450px) and (pointer:coarse)`）：`.request-detail-img` 固定 88px 不溢出；按钮高度由 `.mini-btn` 既有 44px 规则保证。
 - [ ] 8. 桌面端不强制把所有 `.mini-btn` 放大到 44px，保持现有 `30px` 规格。
-- [ ] 9. 验证：
+- [ ] 9. 验证（见下方 Expected）：
   ```bash
   cd "C:\Users\Administrator\Desktop\SCUM用户网页"
-  node scripts/test-request-detail.js
+  node scripts/test-request-detail.js --group=js
+  node scripts/test-request-detail.js --group=css
+  node scripts/test-request-detail.js --group=all
   node scripts/test-request-manage.js
   node scripts/test-mobile-touch-targets.js
   node scripts/test-home-structure.js
@@ -335,17 +419,14 @@ feat: add player request detail interactions
   git diff --check
   ```
 
-**Commands：**
-```bash
-cd "C:\Users\Administrator\Desktop\SCUM用户网页"
-git diff --check frontend/css/main.css
-```
-
-**Expected：**
-- `test-request-detail.js` 全部通过（含 `.request-detail` 暗色类断言）。
-- `test-request-manage.js` / `test-mobile-touch-targets.js` / `test-home-structure.js` 全绿。
-- `node --check frontend/js/main.js` 通过（未改动 JS，仅作保险）。
-- `git diff --check` 无空白错误。
+**Expected（验证结果，修正）：**
+1. `--group=js`：**全部通过，退出码 0**。
+2. `--group=css`：**全部通过，退出码 0**（C 结构全绿）。
+3. `--group=all`：**全部通过，退出码 0**（JS + CSS 均绿）。
+4. 三组退出码**均为 0**。
+5. 原有回归测试（test-request-manage / test-mobile-touch-targets / test-home-structure）通过。
+6. `git diff --check` 无新增空白错误。
+7. **只有满足以上全部条件才允许提交 CSS。**
 
 **Git 暂存边界：**
 ```bash
@@ -368,7 +449,7 @@ style: add player request detail layout
 - `验收截图/玩家建议详情/`（验收截图，不提交）
 - 临时验收脚本（不提交）
 
-**不修改：** `erp14-server-showcase.html`、`frontend/`、`backend/`、测试源文件。
+**不修改：** `erp14-server-showcase.html`、`frontend/`、`backend/`、测试源文件、`scripts/check-frontend-sync.js`。
 
 **Steps：**
 - [ ] 1. 记录生产页构建前 SHA256（重新计算，不使用常量）：
@@ -387,7 +468,7 @@ style: add player request detail layout
   ```
 - [ ] 4. 执行所有专项与回归：
   ```bash
-  node scripts/test-request-detail.js
+  node scripts/test-request-detail.js --group=all
   node scripts/test-request-manage.js
   node scripts/test-home-structure.js
   node scripts/test-mobile-touch-targets.js
@@ -433,15 +514,15 @@ style: add player request detail layout
   18. 长内容完整显示且不会破坏布局。
   19. 原有投票、否定、讨论操作仍存在并可点击。
   20. 320/375/414 无横向滚动。
-  21. 横屏触控按钮高度 ≥44px。
+  21. 横屏触控按钮高度 ≥44px（真实测量矩形）。
   22. 桌面布局正常。
   23. 亮色主题可读。
   24. 暗色主题可读。
   25. 控制台 JavaScript 错误为 0。
   26. 页面异常错误（pageerror）为 0。
-  27. 不出现 `undefined` / `null` 字样。
+  27. 不出现 `undefined` / `null` 字样（真实渲染）。
   28. 生产页 SHA256 前后一致。
-  29. `check-frontend-sync` 的差异准确归因为“生产页暂未同步”。
+  29. `check-frontend-sync` 的差异准确归因为“生产页暂未同步”（见步骤 11）。
 - [ ] 9. 截图至少包含（不提交）：
   - 375px 默认收起
   - 375px 展开详情
@@ -452,11 +533,14 @@ style: add player request detail layout
   - 812×375 横屏触控
   - 1440px 桌面展开详情
 - [ ] 10. 记录构建后生产页 SHA256（重算），与步骤 1 记录值比对，必须一致。
-- [ ] 11. 运行同步检查并记录预期差异：
+- [ ] 11. **运行同步检查并如实记录（修正后规则）**：
   ```bash
   node scripts/check-frontend-sync.js
   ```
-  确认差异仅限“frontend 已新增玩家建议详情功能，生产页暂未同步”，真实失败数为 0。
+  - 完整记录：通过数、预期提示数、真实失败数、退出码、每条失败名称、每条差异的具体文件和原因。
+  - 若失败**仅由本功能造成**（如 `frontend/js/main.js` 比生产页新增详情逻辑、`frontend/css/main.css` 比生产页新增详情样式、生产页按边界暂未同步），则准确归因为：「`frontend/` 已新增玩家建议详情功能，生产页按本阶段边界暂未同步。」——该差异在本阶段**可接受，但必须如实保留非零退出码和真实失败数**，不得改为 0。
+  - 若出现**与本功能无关的新失败**：Task 4 停止验收，不自行修改，报告总指挥。
+  - **不得修改 `check-frontend-sync.js` 来迁就本功能；不得同步生产页来消除差异；不得把真实失败改名为“预期提示”来使统计归零。**
 - [ ] 12. 如发现产品缺陷：停止验收，原样报告，**不自行修改功能代码**，等待总指挥下发返工提示词。
 - [ ] 13. 浏览器验收全部通过后，**不创建功能提交**，等待文档收尾（Task 5）。
 
@@ -470,9 +554,10 @@ node scripts/check-frontend-sync.js
 
 **Expected：**
 - 构建成功，`dist/erp14-server-showcase.preview.html` 生成。
-- `test-build-frontend-preview.js` 通过；所有专项/回归测试通过。
+- `test-build-frontend-preview.js` 通过；所有专项/回归测试通过（`--group=all` 退出码 0）。
 - 29 项浏览器断言全部通过；截图按要求生成（不提交）。
-- 生产页 SHA256 前后一致；`check-frontend-sync.js` 真实失败为 0，差异准确归因。
+- 生产页 SHA256 前后一致。
+- `check-frontend-sync.js` **真实失败数不为零（属预期差异）**，准确归因于「`frontend/` 已新增玩家建议详情功能，生产页按本阶段边界暂未同步」；不视为功能缺陷。
 
 **Git 暂存边界：** 本 Task **不提交任何文件**（`dist/`、截图目录、临时脚本均不提交）。
 
@@ -510,7 +595,7 @@ node scripts/check-frontend-sync.js
   - 筛选/搜索清空逻辑（`requestSearch` / `requestTabs` / `requestCategoryFilters` / `renderAll` 四处 `resetExpandedRequest()`）行号。
   - `.request-detail` 系列样式在 `main.css` 的行号。
   - 移动端与横屏触控规则（复用 `.mini-btn` 44px）行号。
-  - `scripts/test-request-detail.js` 说明（断言总数按实际填写）。
+  - `scripts/test-request-detail.js` 说明（断言总数按实际填写；分组 `--group=js/css/all`）。
 - [ ] 3. 在 `更新日志.md` 按“记录格式”新增一条，包含：
   - 功能范围（仅前台卡片内展开详情，不新增后端/API/弹窗/持久化）。
   - 真实字段限制（`created_at` 当前前台数据不存在，仅条件渲染预留）。
@@ -518,13 +603,13 @@ node scripts/check-frontend-sync.js
   - 三种状态标题规则（`done`→完成说明、`rejected`→拒绝原因、`pending/planned`→管理员回复）。
   - 同时仅展开一张。
   - 筛选/搜索/数据重载清空 `expandedRequestId`。
-  - 测试统计（按 Task 1 报告的实际断言总数与通过数填写，不得写虚假数量）。
+  - 测试统计（按 Task 1 报告的实际断言总数与通过数填写，不得写虚假数量；分别列出 JS / CSS / ALL 分组结果）。
   - 浏览器验收视口（7 类）与结论（29 项断言全部通过；如未实际执行则不得声称通过）。
   - 截图未提交（`验收截图/玩家建议详情/`，不进 Git）。
   - 生产页未同步（SHA256 前后一致，但 `frontend/` 已领先）。
   - 未部署。
-  - `check-frontend-sync` 预期差异的准确归因（frontend 已新增详情功能，生产页暂未同步）。
-- [ ] 4. 不写虚假测试数量；不写未实际执行的浏览器结论；不记录 `created_at` 当前可见；不声称生产页已同步。
+  - `check-frontend-sync` 预期差异的准确归因与**真实失败数**（frontend 已新增详情功能，生产页暂未同步；差异可接受但非零退出码如实保留）。
+- [ ] 4. 不写虚假测试数量；不写未实际执行的浏览器结论；不记录 `created_at` 当前可见；不声称生产页已同步；不把真实同步失败改写为“预期提示”。
 - [ ] 5. 验证只改了这两个文档：
   ```bash
   cd "C:\Users\Administrator\Desktop\SCUM用户网页"
@@ -557,60 +642,74 @@ docs: record player request details
 
 ---
 
-## 六、32 项设计测试要求分配表
+## 六、32 项设计测试要求分配表（按测试类型分类）
 
-| 规格项 | 内容 | Task 1（测试） | Task 2（JS） | Task 3（CSS） | Task 4（验收） |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 查看详情按钮存在 | ✔ | ✔ | — | ✔ |
-| 2 | 按钮位于底部操作区最左 | ✔ | ✔ | — | ✔ |
-| 3 | 默认不展开（hidden） | ✔ | ✔ | — | ✔ |
-| 4 | 点击展开（移除 hidden） | ✔ | ✔ | — | ✔ |
-| 5 | 文案变“收起详情” | ✔ | ✔ | — | ✔ |
-| 6 | aria-expanded false→true | ✔ | ✔ | — | ✔ |
-| 7 | aria-controls 关联 id | ✔ | ✔ | — | ✔ |
-| 8 | 再次点击收起 | ✔ | ✔ | — | ✔ |
-| 9 | 同时只展开一张 | ✔ | ✔ | — | ✔ |
-| 10 | 点击另一张前一张收起 | ✔ | ✔ | — | ✔ |
-| 11 | 状态筛选清空 | ✔ | ✔ | — | ✔ |
-| 12 | 分类筛选清空 | ✔ | ✔ | — | ✔ |
-| 13 | 搜索变化清空 | ✔ | ✔ | — | ✔ |
-| 14 | 普通重绘保留展开 | ✔ | ✔ | — | ✔ |
-| 15 | 重新筛选安全重置 | ✔ | ✔ | — | ✔ |
-| 16 | 完整内容转义显示 | ✔ | ✔ | — | ✔ |
-| 17 | created_at 仅当存在 | ✔ | ✔ | — | ✔ |
-| 18 | pending/planned 管理员回复 | ✔ | ✔ | — | ✔ |
-| 19 | done 完成说明 | ✔ | ✔ | — | ✔ |
-| 20 | rejected 拒绝原因 | ✔ | ✔ | — | ✔ |
-| 21 | 空管理员说明不渲染 | ✔ | ✔ | — | ✔ |
-| 22 | 不显示 undefined/null | ✔ | ✔ | — | ✔ |
-| 23 | 图片为空不渲染 | ✔ | ✔ | — | ✔ |
-| 24 | 状态颜色复用现有类 | ✔ | — | ✔ | ✔ |
-| 25 | 原投票/讨论不回归 | ✔ | ✔ | ✔ | ✔ |
-| 26 | 320/375/414 无横向滚动 | ✔ | — | ✔ | ✔ |
-| 27 | 横屏触控 ≥44px | ✔ | — | ✔ | ✔ |
-| 28 | 查看详情按钮 ≥44px | ✔ | — | ✔ | ✔ |
-| 29 | 亮/暗主题可读 | ✔ | — | ✔ | ✔ |
-| 30 | 控制台无 JS 错误 | ✔ | — | — | ✔ |
-| 31 | 无有效 ID 不渲染且列表不崩 | ✔ | ✔ | — | ✔ |
-| 32 | 生产页暂未同步（归因） | ✔ | — | — | ✔ |
+> 每项标明**测试类型**，不再宣称 Task 1 用静态断言一次性覆盖全部要求。浏览器验收（控制台/布局/真实触控矩形）明确不在 Task 1 静态通过；无有效 ID 不崩溃、展开互斥、筛选清空属于 JavaScript 行为测试；生产页同步边界属于 Task 4 构建/同步检查。
 
-> 全部 32 项均映射到至少一个 Task；Task 1 以静态断言覆盖全部 32 项（红灯→绿灯），Task 4 以浏览器断言覆盖 29 项（30/31/32 中 31 为静态安全、32 为同步检查归因，30 为控制台零错误）。
+| 规格项 | 内容 | 测试类型 | 覆盖 Task |
+| --- | --- | --- | --- |
+| 1 | 查看详情按钮存在 | 结构静态测试(JS) | Task 1(A.2) / Task 4 |
+| 2 | 按钮位于底部操作区最左 | 结构静态测试(JS) + 浏览器实际验收 | Task 1(A.2) / Task 4 |
+| 3 | 默认不展开（hidden） | JavaScript 沙箱行为测试 | Task 1(B.2/B.3) / Task 4 |
+| 4 | 点击展开（移除 hidden） | JavaScript 沙箱行为测试 | Task 1(B.2) / Task 4 |
+| 5 | 文案变“收起详情” | JavaScript 沙箱行为测试 | Task 1(B.2/B.3) / Task 4 |
+| 6 | aria-expanded false→true | JavaScript 沙箱行为测试 | Task 1(B.2) / Task 4 |
+| 7 | aria-controls 关联 id | JavaScript 沙箱行为测试 | Task 1(B.2) / Task 4 |
+| 8 | 再次点击收起 | JavaScript 沙箱行为测试 | Task 1(B.3) / Task 4 |
+| 9 | 同时只展开一张 | JavaScript 沙箱行为测试 | Task 1(B.4/B.5) / Task 4 |
+| 10 | 点击另一张前一张收起 | JavaScript 沙箱行为测试 | Task 1(B.4) / Task 4 |
+| 11 | 状态筛选清空 | JavaScript 沙箱行为测试 | Task 1(B.6) / Task 4 |
+| 12 | 分类筛选清空 | JavaScript 沙箱行为测试 | Task 1(B.7) / Task 4 |
+| 13 | 搜索变化清空 | JavaScript 沙箱行为测试 | Task 1(B.8) / Task 4 |
+| 14 | 普通重绘保留展开 | JavaScript 沙箱行为测试 | Task 1(B.10) / Task 4 |
+| 15 | 重新筛选安全重置 | JavaScript 沙箱行为测试 | Task 1(B.6-B.9) / Task 4 |
+| 16 | 完整内容转义显示 | JavaScript 沙箱行为测试 | Task 1(B.20) / Task 4 |
+| 17 | created_at 仅当存在 | JavaScript 沙箱行为测试 | Task 1(B.16) / Task 4 |
+| 18 | pending/planned 管理员回复 | JavaScript 沙箱行为测试 | Task 1(B.12/B.22) |
+| 19 | done 完成说明 | JavaScript 沙箱行为测试 | Task 1(B.11/B.22) |
+| 20 | rejected 拒绝原因 | JavaScript 沙箱行为测试 | Task 1(B.13/B.14/B.22) |
+| 21 | 空管理员说明不渲染 | JavaScript 沙箱行为测试 | Task 1(B.15/B.23) |
+| 22 | 不显示 undefined/null | JavaScript 沙箱行为测试 + 浏览器实际验收 | Task 1(B.19) / Task 4 |
+| 23 | 图片为空不渲染 | JavaScript 沙箱行为测试 | Task 1(B.17) |
+| 24 | 状态颜色复用现有类 | CSS 结构测试 | Task 1(C.1/C.3) / Task 4 |
+| 25 | 原投票/讨论不回归 | 结构静态测试(JS) + 浏览器实际验收 | Task 1(B.24) / Task 4 |
+| 26 | 320/375/414 无横向滚动 | 浏览器实际验收 | Task 4 |
+| 27 | 横屏触控 ≥44px | 浏览器实际验收 | Task 4 |
+| 28 | 查看详情按钮 ≥44px | CSS 结构测试 + 浏览器实际验收 | Task 1(C.4/C.5) / Task 4 |
+| 29 | 亮/暗主题可读 | CSS 结构测试 + 浏览器实际验收 | Task 1(C.3) / Task 4 |
+| 30 | 控制台无 JS 错误 | 浏览器实际验收 | Task 4 |
+| 31 | 无有效 ID 不渲染且列表不崩 | JavaScript 沙箱行为测试 | Task 1(B.18) / Task 4 |
+| 32 | 生产页暂未同步（归因） | 构建/同步检查 | Task 4(步骤 11) |
+
+> 全部 32 项均映射到至少一种测试类型；行为类（3–23、31）以 Task 1 的 B 组**真实执行**覆盖，结构类（1/2/24/25/28/29）以 A/C 组静态检查覆盖，浏览器类（26/27/30 及交互可视化项）以 Task 4 实际验收覆盖，同步类（32）以 Task 4 构建/同步检查覆盖。Task 1 不再声称以静态断言覆盖全部 32 项。
 
 ---
 
-## 七、计划自检（五）
+## 七、计划自检（修正后）
 
-1. **32 项测试要求是否全部映射？** 是，见第六节分配表，每项至少命中一个 Task。
+1. **32 项测试要求是否全部按测试类型覆盖？** 是，见第六节分配表，每项均有明确测试类型（结构静态/JS 行为/CSS 结构/浏览器验收/构建同步），不再声称 Task 1 静态覆盖全部。
 2. **管理员字段规则是否与规格一致？** 是，`getRequestAdminDetail` 中 `done→完成说明(adminReply)`、`rejected→拒绝原因(rejectReason 优先，回退 adminReply)`、`pending/planned→管理员回复(adminReply)`，空值返回 `null` 不渲染，与规格第 7 节一致。
-3. **是否错误加入 created_at 数据来源改造？** 否。仅做 `if (item.created_at)` 条件渲染，不新增字段、不改后端、不走 `/api/requests`。
+3. **是否错误加入 created_at 数据来源改造？** 否。仅 `if (item.created_at)` 条件渲染，不新增字段、不改后端、不走 `/api/requests`。
 4. **是否错误设计 index 降级？** 否。采用规格第 10.1 节“无有效 ID 时跳过按钮与详情区、列表不崩溃”，无 `index` 降级 key。
 5. **是否错误要求同步生产页？** 否。全局约束第 3 条明确禁止改生产页；规格 32 / Task 4 明确“生产页暂未同步，check-frontend-sync 允许报差异并准确归因”。
-6. **是否遗漏筛选、搜索、重载清空状态？** 否。Task 2 步骤 6.1-6.4 显式在四处调用 `resetExpandedRequest()`。
-7. **是否遗漏普通重绘保留展开状态？** 否。Task 2 步骤 4 明确 `renderRequests()` 内部不写 `expandedRequestId = null`；`voteRequest` 的 `renderRequests` 调用保持展开。
-8. **是否遗漏无有效 ID 的安全处理？** 否。Task 2 步骤 4.3/4.5/4.6 在 `!requestId` 时返回空串，列表继续渲染。
+6. **是否遗漏筛选、搜索、重载清空状态？** 否。Task 2 步骤 6.1-6.4 显式在四处调用 `resetExpandedRequest()`；Task 1 以 B.6-B.9 真实执行 + 接线扫描验证。
+7. **是否遗漏普通重绘保留展开状态？** 否。Task 2 步骤 4 明确 `renderRequests()` 内部不写 `expandedRequestId = null`；Task 1 B.10 真实执行验证。
+8. **是否遗漏无有效 ID 的安全处理？** 否。Task 2 步骤 4.3/4.5/4.6 在 `!requestId` 时返回空串；Task 1 B.18 真实执行验证不崩。
 9. **文件路径、函数名、选择器是否前后一致？** 是。统一使用 `expandedRequestId`、`getRequestAdminDetail`、`buildRequestDetail`、`resetExpandedRequest`、`toggleRequestDetail`、`request-detail*` 选择器，全文一致。
 10. **是否存在占位符或模糊指令？** 否。无 TBD/TODO/稍后实现/适当处理/类似 Task N/自行决定/视情况而定。所有步骤含具体代码骨架与命令。
-11. **git diff --check 结果：** 本计划文件为纯新增，无尾随空白；Task 执行时各 Task 均要求 `git diff --check` 通过。
+11. **rg 错误文案清理（执行后核对）：** 计划正文（Task 描述、验证预期、分配表）不得出现以下错误要求的变体；核对时按语义搜索并确认已无对应内容：
+    - 不得宣称 Task 1 用静态断言一次性覆盖全部 32 项要求（原错误：静态断言覆盖全部项）。
+    - 不得要求同步检查的真实失败数归零（原错误：同步失败数为零）。
+    - 不得写允许样式尚未实现却仍宣称验收通过的放宽表述（原错误：样式未实现仍可失败不影响逻辑）。
+    - 不得写允许 JS 分组通过即算整体通过的模糊标准（原错误：仅 JS 通过即整体通过）。
+12. **rg 正确规则核对（执行后核对，应存在）：**
+    - `--group=js`、`--group=css`、`--group=all`
+    - `JavaScript 行为测试`
+    - `真实执行`
+    - `退出码非零`
+    - `记录真实失败数`
+    - `生产页按本阶段边界暂未同步`
+13. **git diff --check 结果：** 本计划文件为纯新增/改写，无尾随空白；Task 执行时各 Task 均要求 `git diff --check` 通过。
 
 ---
 
@@ -623,13 +722,13 @@ docs/superpowers/plans/2026-07-15-player-request-detail.md
 
 提交信息：
 ```
-docs: plan player request details
+docs: correct player request detail plan
 ```
 
-不得暂存或提交其他文件。
+不得暂存或提交其他文件（含 `备份/` 下的备份副本）。
 
 ---
 
 ## 九、完成报告（执行者填写，非本文件范围）
 
-本文件仅含计划。实际执行后的 21 项完成报告由执行者在最终回复中提供（实际工作目录、读取文件、计划路径、总行数、Task 数量与名称、各 Task 修改文件与提交信息、32 项分配、浏览器验收项数、视口清单、生产页同步边界、check-frontend-sync 归因、文档收尾边界、占位符检查、规格覆盖自检、git diff --check、git diff --cached --name-only、新提交号、确认只提交计划、确认未改功能/测试/生产页/后端/数据库、矛盾缺口说明）。
+本文件仅含计划。实际执行后的 22 项完成报告由执行者在最终回复中提供（实际工作目录、备份路径、结构/行为/CSS 测试数量、浏览器验收数量、三种分组命令、Task 1/2/3 三组预期、check-frontend-sync 统计规则、确认不再要求同步检查的真实失败数归零、32 项分配表重分类、rg 错误文案清理、rg 正确规则核对、git diff --check、git diff 5eb6554 --stat、git diff --cached --name-only、新提交号、确认只提交计划、确认未改功能/测试/生产页/后端/数据库、矛盾缺口说明）。
