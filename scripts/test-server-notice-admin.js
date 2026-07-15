@@ -886,10 +886,10 @@ test('backend', 'B05. PUT 后 value 按 JSON 配置保存', function() {
   assert.ok(putRoute && putRoute.includes('INSERT OR REPLACE'), 'PUT 缺少 INSERT OR REPLACE');
 });
 test('backend', 'B06. 非白名单配置 key 仍被拒绝', function() {
-  var idx = SERVER_JS.indexOf('ALLOWED_CONFIG_KEYS');
-  var block = SERVER_JS.slice(idx, idx + 600);
-  assert.ok(block.includes('includes(key)'), '白名单检查已缺失');
-  assert.ok(SERVER_JS.includes('400'), '缺少 400 错误返回');
+  var putBlock = extractRouteBlock(SERVER_JS, "app.put('/api/admin/config'", '// ---- 统计接口');
+  assert.ok(putBlock, '未找到 PUT /api/admin/config 路由块');
+  assert.ok(putBlock.includes('includes(key)'), 'PUT 路由内白名单检查已缺失');
+  assert.ok(putBlock.includes('400'), 'PUT 路由内缺少 400 错误返回');
 });
 test('backend', 'B07. 未新增 server_notice 专用 API', function() {
   assert.ok(!SERVER_JS.includes('/api/server-notice') && !SERVER_JS.includes('/api/notice'), '出现专用通知 API');
@@ -907,20 +907,28 @@ test('css', 'C01. 存在 .notice-floating[hidden] 隐藏规则', function() {
   assert.ok(block, '未找到 .notice-floating[hidden]');
 });
 test('css', 'C02. 后台通知 textarea 有合理 min-height', function() {
-  var block = extractCssBlock(MAIN_CSS, 'textarea');
-  assert.ok(block && block.includes('min-height'), 'textarea 无 min-height');
+  var block = extractCssBlock(MAIN_CSS, '#editNoticeLines');
+  assert.ok(block, '未找到 #editNoticeLines');
+  var mh = block.match(/min-height\s*:\s*(\d+)/);
+  assert.ok(mh, '#editNoticeLines 无 min-height');
+  var val = parseInt(mh[1], 10);
+  assert.ok(val >= 80, 'min-height=' + val + 'px, 低于80px');
 });
-test('css', 'C03. 后台通知 textarea max-width:100%', function() {
-  var block = extractCssBlock(MAIN_CSS, 'textarea');
-  assert.ok(block && (block.includes('max-width:100%') || block.includes('max-width: 100%') || block.includes('width:100%') || block.includes('width: 100%')), 'textarea 无 max-width/width 100%');
+test('css', 'C03. 后台通知 textarea 防溢出', function() {
+  var block = extractCssBlock(MAIN_CSS, '#editNoticeLines');
+  assert.ok(block, '未找到 #editNoticeLines');
+  var hasWidth = /(?:max-)?width\s*:\s*100%\s*;/.test(block);
+  var hasBoxSizing = /box-sizing\s*:\s*border-box/.test(block);
+  assert.ok(hasWidth && hasBoxSizing, '#editNoticeLines 缺少 width:100% 或 box-sizing:border-box');
 });
 test('css', 'C04. 通知列表长文本可换行', function() {
   var block = extractCssBlock(MAIN_CSS, '.server-notice-lines');
   assert.ok(block && (block.includes('word-break') || block.includes('white-space') || block.includes('overflow-wrap')), '缺少长文本换行');
 });
 test('css', 'C05. 通知标题长文本可换行', function() {
-  var block = extractCssBlock(MAIN_CSS, '.server-notice-card strong');
-  assert.ok(block && (block.includes('word-break') || block.includes('overflow-wrap')), '标题缺换行');
+  var block = extractCssBlock(MAIN_CSS, '#noticeTitle');
+  assert.ok(block, '未找到 #noticeTitle');
+  assert.ok(block.includes('word-break') || block.includes('overflow-wrap'), '#noticeTitle 缺换行规则');
 });
 test('css', 'C06. 手机端后台保存按钮 min-height≥44px', function() {
   var ms = MAIN_CSS.indexOf('@media (max-width: 767px)');
