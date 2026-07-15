@@ -1109,11 +1109,34 @@
       color: var(--text-muted);
       font-size: 15px;
       line-height: 1.55;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .server-notice-lines li {
       display: grid;
       gap: 2px;
+    }
+
+    /* 通知专用样式 — 动态通知标题长文本换行 */
+    #noticeTitle {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* 通知专用样式 — 后台通知 textarea */
+    #editNoticeLines {
+      width: 100%;
+      max-width: 100%;
+      min-height: 96px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+
+    /* 通知专用样式 — 原生 hidden 隐藏 */
+    .notice-floating[hidden] {
+      display: none !important;
     }
 
     .server-notice-lines b {

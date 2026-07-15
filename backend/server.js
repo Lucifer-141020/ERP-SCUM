@@ -865,7 +865,8 @@ app.use('/api/admin', verifyToken);
 const ALLOWED_CONFIG_KEYS = [
   'site_title', 'site_description', 'season_text',
   'server_no', 'server_ip', 'group_number',
-  'join_text', 'join_url', 'join_application', 'join_qr'
+  'join_text', 'join_url', 'join_application', 'join_qr',
+  'server_notice'
 ];
 
 app.get('/api/admin/config', (req, res) => {
