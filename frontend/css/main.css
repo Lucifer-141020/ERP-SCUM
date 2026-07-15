@@ -4437,6 +4437,7 @@
         width: 44px;
         height: 44px;
       }
+      .signup-cta { min-height: 44px; }
     }
 
     /* 横屏适配 */
