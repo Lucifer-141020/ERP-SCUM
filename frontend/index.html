@@ -256,23 +256,18 @@
   </main>
 
   <div class="notice-floating" id="noticeFloating" aria-label="服务器通知">
-    <button class="notice-floating-bubble" id="noticeBubble" type="button" aria-label="展开服务器通知" title="查看服务器通知">
+    <button class="notice-floating-bubble" id="noticeBubble" type="button" aria-label="展开服务器通知" aria-controls="noticePanel" aria-expanded="false" title="查看服务器通知">
       <span data-icon="bell"></span>
       <span class="notice-bubble-dot" aria-hidden="true"></span>
     </button>
     <div class="notice-floating-panel card" id="noticePanel">
       <div class="notice-floating-head">
-        <strong>服务器通知</strong>
+        <strong id="noticeTitle"></strong>
         <button class="notice-floating-close" id="noticeClose" type="button" aria-label="收起通知">×</button>
       </div>
       <div class="server-notice-card">
         <strong>服务器稳定开放 · 活动奖励按名单发放</strong>
-        <ul class="server-notice-lines">
-          <li><b>维护公告</b><span>当前赛季长期运营，维护和重启会提前在群内与网站同步通知。</span></li>
-          <li><b>活动奖励</b><span>活动结束后按报名名单和实际参与情况统计，管理员统一发放奖励。</span></li>
-          <li><b>新手提醒</b><span>入服前建议先查看服务器注意事项，避免误会和违规。</span></li>
-          <li><b>问题反馈</b><span>BUG、规则建议和优化想法统一提交到玩家建议页，方便后台跟进。</span></li>
-        </ul>
+        <ul class="server-notice-lines" id="noticeLines"></ul>
       </div>
     </div>
   </div>

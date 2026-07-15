@@ -413,6 +413,18 @@ ${renderManagedImageField({
           <label>数据卡<textarea id="editHomeStats">${homeStats.map(item => `${item.icon || ''}|${item.color || ''}|${item.label || ''}|${item.value || ''}|${item.note || ''}`).map(escapeHtml).join('\n')}</textarea></label>
           <div style="height:14px"></div>
           <button class="btn-primary" id="saveHomeStats">保存数据卡</button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="card pad">
+          <div class="panel-title"><h3>服务器通知</h3><p>一行填写一条通知。保存新内容后，关闭过旧通知的玩家会重新看到。</p></div>
+          <label for="editNoticeEnabled"><input type="checkbox" id="editNoticeEnabled"> 启用服务器通知</label>
+          <div style="height:14px"></div>
+          <label for="editNoticeTitle">通知标题<input type="text" id="editNoticeTitle" autocomplete="off"></label>
+          <div style="height:14px"></div>
+          <label for="editNoticeLines">通知内容<textarea id="editNoticeLines" rows="5" placeholder="一行填写一条通知"></textarea></label>
+          <div style="height:14px"></div>
+          <button class="btn-primary" id="saveServerNotice" type="button">保存服务器通知</button>
+          <div id="saveNoticeHint" class="submit-hint" role="status" aria-live="polite"></div>
         </div>`,
       groupManage: () => `
         <div class="panel-title"><h3>玩家群设置</h3><p>编辑首页右上角“加入玩家群”的按钮文字、链接和申请说明。</p></div>
