@@ -195,16 +195,27 @@ function buildBaselineSandbox(seed, activeStatus) {
   const renderSrc = extractFunction(MAIN_JS, 'renderRequests');
   const decl = extractVariableAssignment(MAIN_JS, 'expandedRequestId');
   const expDecl = decl || 'let expandedRequestId = null;';
+  const adminFn = extractFunction(MAIN_JS, 'getRequestAdminDetail');
+  const buildFn = extractFunction(MAIN_JS, 'buildRequestDetail');
   const wrapper = `
     ${sandboxPrelude(seed, null, activeStatus)}
     ${expDecl}
+    ${adminFn || 'function getRequestAdminDetail() { return null; }'}
+    ${buildFn || 'function buildRequestDetail() { return ""; }'}
     ${renderSrc || 'function renderRequests() { captured.requestGrid = "<div>no-render</div>"; }'}
     return {
       get grid(){ return captured.requestGrid; },
       render: () => { try { renderRequests(); } catch(e) { captured.requestGrid = '__RENDER_ERROR__:' + e.message; throw e; } return captured.requestGrid; }
     };
   `;
-  return new Function('Date', 'Math', 'JSON', 'console', wrapper)(Date, Math, JSON, console);
+  var sandbox = new Function('Date', 'Math', 'JSON', 'console', wrapper)(Date, Math, JSON, console);
+  // 自检：注入的函数必须是真实 function（不增加 test 数）
+  if (typeof sandbox.render !== 'function') throw new Error('基线沙箱自检失败：render 不是函数');
+  // 验证 getRequestAdminDetail/buildRequestDetail 已正确注入
+  var sandboxCode = wrapper;
+  if (adminFn && !sandboxCode.includes('function getRequestAdminDetail(')) throw new Error('基线沙箱自检失败：getRequestAdminDetail 未注入');
+  if (buildFn && !sandboxCode.includes('function buildRequestDetail(')) throw new Error('基线沙箱自检失败：buildRequestDetail 未注入');
+  return sandbox;
 }
 
 // ---- 构建详情功能沙箱 ----
