@@ -200,6 +200,7 @@
     let panelDirty = false;
     let activeRequestStatus = '';
     let activePlayerName = '';
+    let expandedRequestId = null;
     let playerSessions = [];
     let expandedFixed = false;
     let expandedSignup = false;
@@ -829,6 +830,54 @@ ${renderManagedImageField({
         item.id = `req-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`;
       }
       return item.id;
+    }
+
+    function getRequestAdminDetail(item, status) {
+      const norm = normalizeRequestStatus(status);
+      if (norm === 'done') {
+        const text = (item.adminReply || '').trim();
+        return text ? { label: '完成说明', value: text } : null;
+      }
+      if (norm === 'rejected') {
+        const reason = (item.rejectReason || '').trim();
+        if (reason) return { label: '拒绝原因', value: reason };
+        const reply = (item.adminReply || '').trim();
+        return reply ? { label: '拒绝原因', value: reply } : null;
+      }
+      const reply = (item.adminReply || '').trim();
+      return reply ? { label: '管理员回复', value: reply } : null;
+    }
+
+
+    function buildRequestDetail(item, requestId) {
+      const rows = [];
+      function detailRow(label, valueHtml) {
+        return '<div class="request-detail-row"><span class="request-detail-label">' + escapeHtml(label) + '</span><div class="request-detail-value">' + valueHtml + '</div></div>';
+      }
+      rows.push(detailRow('建议内容', escapeHtml(item.text)));
+      if (item.created_at) rows.push(detailRow('提交时间', escapeHtml(item.created_at)));
+      rows.push(detailRow('提交人', escapeHtml(item.user)));
+      rows.push(detailRow('分类', escapeHtml(requestCategoryLabel(item.category || ''))));
+      rows.push(detailRow('状态', escapeHtml(requestLabel(item.status))));
+      var admin = getRequestAdminDetail(item, item.status);
+      if (admin) rows.push(detailRow(admin.label, escapeHtml(admin.value)));
+      var imagesHtml = '';
+      if (Array.isArray(item.images) && item.images.length) {
+        imagesHtml = '<div class="request-detail-images">' + item.images.map(function(src) {
+          return '<img class="request-detail-img" src="' + escapeAttr(src) + '" alt="' + escapeAttr(item.title || '建议图片') + '" loading="lazy">';
+        }).join('') + '</div>';
+      }
+      return '<div class="request-detail-inner">' + rows.join('') + imagesHtml + '</div>';
+    }
+
+    function resetExpandedRequest() {
+      expandedRequestId = null;
+    }
+
+    function toggleRequestDetail(requestId) {
+      if (!requestId) return;
+      expandedRequestId = (expandedRequestId === requestId) ? null : requestId;
+      renderRequests();
     }
 
     function getCurrentVoterName() {
@@ -2108,11 +2157,22 @@ ${renderManagedImageField({
         const frontStatus = normalizeRequestStatus(item.status);
         const canVote = frontStatus === 'pending';
         const playerVote = canVote ? getPlayerVote(item, index) : '';
-        const statusNote = frontStatus === 'done'
-          ? `<div class="admin-note done">完成说明：${escapeHtml(item.adminReply || '已完成处理')}</div>`
-          : frontStatus === 'rejected'
-            ? `<div class="admin-note reject">拒绝原因：${escapeHtml(item.rejectReason || item.adminReply || '管理员未填写拒绝原因')}</div>`
-            : (item.adminReply ? `<div class="admin-note">管理员回复：${escapeHtml(item.adminReply)}</div>` : '');
+        const requestId = getRequestId(item, index);
+        const isExpanded = expandedRequestId === requestId;
+        const detailBtn = requestId
+          ? '<button class="mini-btn" type="button" data-action="toggle-request-detail" data-request-id="' + escapeAttr(requestId) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="request-detail-' + escapeAttr(requestId) + '">' + (isExpanded ? '收起详情' : '查看详情') + '</button>'
+          : '';
+        const detailRegion = requestId
+          ? '<div class="request-detail" id="request-detail-' + escapeAttr(requestId) + '" role="region" aria-label="建议详情"' + (isExpanded ? '' : ' hidden') + '>' + buildRequestDetail(item, requestId) + '</div>'
+          : '';
+        var statusNote = '';
+        var adminDetail = getRequestAdminDetail(item, item.status);
+        if (adminDetail) {
+          if (adminDetail) {
+            var noteCls = item.status === 'done' ? ' done' : item.status === 'rejected' ? ' reject' : '';
+            statusNote = '<div class="admin-note' + noteCls + '">' + escapeHtml(adminDetail.label) + '：' + escapeHtml(adminDetail.value) + '</div>';
+          }
+        }
         const voteActions = canVote
           ? `<button class="mini-btn" data-action="vote-request" data-vote="agree" data-index="${index}" ${playerVote ? 'disabled' : ''}>${playerVote === 'agree' ? '已同意' : '同意'}</button>
               <button class="mini-btn" data-action="vote-request" data-vote="disagree" data-index="${index}" ${playerVote ? 'disabled' : ''}>${playerVote === 'disagree' ? '已否定' : '否定'}</button>`
@@ -2127,11 +2187,13 @@ ${renderManagedImageField({
           <div class="vote-row">
             <span class="vote-counts" data-vote-count="${index}"><span>同意 <strong>${item.agree || 0}</strong></span><span>否定 <strong class="bad">${item.disagree || 0}</strong></span></span>
             <div class="vote-actions">
+              ${detailBtn}
               ${voteActions}
               <button class="mini-btn" data-toast="讨论窗口已预留">讨论</button>
             </div>
           </div>
           ${statusNote}
+          ${detailRegion}
         </article>`;
       }).join('');
       document.getElementById('requestGrid').innerHTML = html || '<div class="card pad">没有匹配的玩家建议。</div>';
@@ -3962,11 +4024,12 @@ ${item.text}`);
       });
     });
     document.querySelectorAll('[data-toast]').forEach(el => el.addEventListener('click', () => showToast(el.dataset.toast)));
-    document.getElementById('requestSearch').addEventListener('input', renderRequests);
+    document.getElementById('requestSearch').addEventListener('input', function() { resetExpandedRequest(); renderRequests(); });
     document.querySelectorAll('#requestTabs button').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#requestTabs button').forEach(item => item.classList.remove('active'));
         btn.classList.add('active');
+        resetExpandedRequest();
         renderRequests();
       });
     });
@@ -3974,6 +4037,7 @@ ${item.text}`);
       btn.addEventListener('click', () => {
         document.querySelectorAll('#requestCategoryFilters button').forEach(item => item.classList.remove('active'));
         btn.classList.add('active');
+        resetExpandedRequest();
         renderRequests();
       });
     });
@@ -4026,6 +4090,11 @@ ${item.text}`);
         voteRequest(Number(frontVote.dataset.index), frontVote.dataset.vote || 'agree');
         return;
       }
+      const detailTrigger = event.target.closest('[data-action="toggle-request-detail"]');
+      if (detailTrigger && !detailTrigger.closest('#panelMain')) {
+        toggleRequestDetail(detailTrigger.dataset.requestId);
+        return;
+      }
       const signupTrigger = event.target.closest('[data-open-signup]');
       if (signupTrigger) {
         openEventSignup(Number(signupTrigger.dataset.openSignup));
@@ -4062,6 +4131,7 @@ ${item.text}`);
     });
 
     function renderAll() {
+      resetExpandedRequest();
       renderHero();
       renderHeroCarousel();
       renderHomeStats();
