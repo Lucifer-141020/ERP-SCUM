@@ -83,6 +83,69 @@ function helperSource() {
   return EXTRACTED_HELPERS.filter(h => h.src).map(h => h.src).join('\n');
 }
 
+// ---- 精确定位事件处理器函数体（跳过诱饵引用） ----
+function extractHandlerBody(src, elementId, eventName, useQuerySelectorAll) {
+  if (useQuerySelectorAll) {
+    var pattern = "document.querySelectorAll('#" + elementId + " button').forEach";
+    var idx = src.indexOf(pattern);
+    if (idx === -1) return null;
+    var arrowIdx = src.indexOf('=>', idx);
+    if (arrowIdx === -1 || arrowIdx > idx + 300) return null;
+    var bodyStart = src.indexOf('{', arrowIdx);
+    if (bodyStart === -1) return null;
+    var depth = 0;
+    for (var i = bodyStart; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(bodyStart, i + 1); }
+    }
+    return null;
+  }
+  var pattern = "document.getElementById('" + elementId + "').addEventListener('" + eventName + "',";
+  var idx = src.indexOf(pattern);
+  if (idx === -1) return null;
+  var funcStart = idx + pattern.length;
+  if (src[funcStart] === '{') {
+    // Arrow function: () => { ... }
+    var bodyStart = funcStart;
+    var depth = 0;
+    for (var i = bodyStart; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(bodyStart, i + 1); }
+    }
+    return null;
+  }
+  // function() { ... }
+  var fnIdx = src.indexOf('function', funcStart);
+  if (fnIdx === -1 || fnIdx > funcStart + 30) return null;
+  var bodyStart = src.indexOf('{', fnIdx);
+  if (bodyStart === -1) return null;
+  var depth = 0;
+  for (var i = bodyStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(bodyStart, i + 1); }
+  }
+  return null;
+}
+
+// ---- 精确定位自检（不增加 test 数） ----
+(function selfCheckHandlerLocator() {
+  var synthSrc =
+    "var q = document.getElementById('requestSearch').value.trim();\n" +
+    "document.getElementById('requestSearch').addEventListener('input', function() { resetExpandedRequest(); renderRequests(); });";
+  var body = extractHandlerBody(synthSrc, 'requestSearch', 'input', false);
+  if (!body) throw new Error('自检失败 extractHandlerBody(gid) 返回 null');
+  if (!body.includes('resetExpandedRequest')) throw new Error('自检失败 gid body 不含 resetExpandedRequest');
+  if (body.includes('trim')) throw new Error('自检失败 gid body 混入诱饵');
+  // querySelectorAll 模式自检
+  var synthSrc2 =
+    "var x = document.querySelectorAll('#requestTabs button');\n" +
+    "document.querySelectorAll('#requestTabs button').forEach(btn => { resetExpandedRequest(); renderRequests(); });";
+  var body2 = extractHandlerBody(synthSrc2, 'requestTabs', 'click', true);
+  if (!body2) throw new Error('自检失败 extractHandlerBody(qsa) 返回 null');
+  if (!body2.includes('resetExpandedRequest')) throw new Error('自检失败 qsa body 不含 resetExpandedRequest');
+  if (body2.includes('querySelectorAll')) throw new Error('自检失败 qsa body 混入诱饵');
+})();
+
 // 生成 document mock
 function docMock(activeStatus) {
   var st = activeStatus || 'pending';
@@ -412,9 +475,8 @@ test('js', 'B6. 状态筛选清空展开状态（resetExpandedRequest 行为 + �
   sandbox.expandedRequestId = 'X';
   sandbox.reset();
   assert.strictEqual(sandbox.expandedRequestId, null, 'reset 后 expandedRequestId 不是 null');
-  const tabIdx = MAIN_JS.indexOf('requestTabs');
-  const tabSection = MAIN_JS.slice(tabIdx, tabIdx + 300);
-  assert.ok(tabSection.includes('resetExpandedRequest'), 'requestTabs 处理区未调用 resetExpandedRequest');
+  var body = extractHandlerBody(MAIN_JS, 'requestTabs', 'click', true);
+  assert.ok(body && body.includes('resetExpandedRequest'), 'requestTabs forEach 回调内未调用 resetExpandedRequest');
 });
 
 test('js', 'B7. 分类筛选清空展开状态（resetExpandedRequest 行为 + 接线扫描）', () => {
@@ -423,15 +485,13 @@ test('js', 'B7. 分类筛选清空展开状态（resetExpandedRequest 行为 + �
   sandbox.expandedRequestId = 'X';
   sandbox.reset();
   assert.strictEqual(sandbox.expandedRequestId, null, 'reset 后 expandedRequestId 不是 null');
-  const catIdx = MAIN_JS.indexOf('requestCategoryFilters');
-  const catSection = MAIN_JS.slice(catIdx, catIdx + 300);
-  assert.ok(catSection.includes('resetExpandedRequest'), 'requestCategoryFilters 处理区未调用 resetExpandedRequest');
+  var body = extractHandlerBody(MAIN_JS, 'requestCategoryFilters', 'click', true);
+  assert.ok(body && body.includes('resetExpandedRequest'), 'requestCategoryFilters forEach 回调内未调用 resetExpandedRequest');
 });
 
 test('js', 'B8. 搜索变化清空展开状态（接线扫描）', () => {
-  const searchIdx = MAIN_JS.indexOf('requestSearch');
-  const searchSection = MAIN_JS.slice(searchIdx, searchIdx + 300);
-  assert.ok(searchSection.includes('resetExpandedRequest'), 'requestSearch 处理区未调用 resetExpandedRequest');
+  var body = extractHandlerBody(MAIN_JS, 'requestSearch', 'input', false);
+  assert.ok(body && body.includes('resetExpandedRequest'), 'requestSearch addEventListener 回调内未调用 resetExpandedRequest');
 });
 
 test('js', 'B9. 数据重载清空展开状态（接线扫描）', () => {
