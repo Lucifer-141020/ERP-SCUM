@@ -1817,7 +1817,12 @@
       gap: 12px;
     }
 
-    .request-card h3,
+    .request-card h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
     .update-card h3 {
       margin: 0;
       font-size: 16px;
@@ -1828,11 +1833,19 @@
       margin: 0;
       color: var(--text-muted);
       line-height: 1.65;
+    }
+    .request-card p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+    .update-card p {
       font-size: 13px;
     }
 
     .vote-row {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       gap: 10px;
       align-items: center;
@@ -1842,7 +1855,17 @@
 
     .vote-actions {
       display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 8px;
+    }
+
+    .request-card .mini-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1;
     }
 
     .mini-btn {
@@ -2651,6 +2674,41 @@
       background-color: var(--surface-soft);
     }
 
+    .admin-request-thumb {
+      position: relative;
+      overflow: hidden;
+      cursor: zoom-in;
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+    }
+
+    .admin-request-thumb::after {
+      content: "查看大图";
+      position: absolute;
+      inset: auto 4px 4px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .68);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1.2;
+      opacity: 0;
+      transform: translateY(3px);
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+    }
+
+    .admin-request-thumb:hover,
+    .admin-request-thumb:focus-visible {
+      transform: scale(1.04);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 55%, transparent);
+    }
+
+    .admin-request-thumb:hover::after,
+    .admin-request-thumb:focus-visible::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     .preview-thumb {
       position: relative;
       padding: 0;
@@ -2692,54 +2750,14 @@
       border-radius: var(--radius);
       background: var(--accent-cool-soft);
       color: var(--accent-cool);
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.6;
+      font-weight: 600;
     }
 
     .admin-note.reject {
       background: var(--danger-soft);
       color: var(--danger);
-    }
-
-    .request-detail {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    .request-detail-inner {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .request-detail-row {
-      display: flex;
-      gap: 8px;
-    }
-    .request-detail-label {
-      flex-shrink: 0;
-      min-width: 72px;
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-    .request-detail-value {
-      color: var(--text);
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-    .request-detail-images {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 4px;
-    }
-    .request-detail-img {
-      width: 60px;
-      height: 60px;
-      border-radius: var(--radius);
-      object-fit: cover;
-      max-width: 100%;
     }
 
     .submit-hint {
@@ -4608,8 +4626,6 @@
     [data-theme="dark"] .admin-note { color: var(--text-400); background: rgba(255, 255, 255, 0.04); }
     [data-theme="dark"] .admin-note.done { color: var(--success); background: var(--success-soft); }
     [data-theme="dark"] .admin-note.reject { color: var(--danger); background: var(--danger-soft); }
-    [data-theme="dark"] .request-detail { border-top-color: var(--border); }
-    [data-theme="dark"] .request-detail-value { color: var(--text-400); }
     [data-theme="dark"] .vote-counts { color: var(--text-500); }
     [data-theme="dark"] .vote-counts strong { color: var(--text-300); }
 
