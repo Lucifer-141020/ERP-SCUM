@@ -83,9 +83,10 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 
 `config` 表为 `key TEXT PRIMARY KEY, value TEXT, updated_at DATETIME`，以 JSON 存储任意配置值。新增 `server_notice` 仅需插入一条 `key` 记录，**不需要**改表结构、不需要迁移脚本。
 
-### 2.7 转义工具（`frontend/js/main.js:770` `escapeHtml`、`frontend/js/main.js:780` `escapeAttr`）
+### 2.7 现有转义工具（`frontend/js/main.js:770` `escapeHtml`、`frontend/js/main.js:780` `escapeAttr`）
 
-两个函数均已存在，供动态内容安全渲染复用。
+`escapeHtml` 与 `escapeAttr` 是项目既有工具函数，存在且可用。但本服务器通知渲染流程不调用它们。
+标题与每一行内容统一通过 DOM 节点的 `textContent` 赋值渲染，与转义函数无关。此节仅记录现状，不表示通知渲染依赖或应当调用转义函数。
 
 ---
 
@@ -113,7 +114,7 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 7. 玩家关闭后，本设备保持折叠。
 8. 管理员修改并保存后生成新版本；新版本发布后，关闭过旧版本的玩家会重新看到通知。
 9. version 由保存逻辑自动生成，管理员不可手填。
-10. 动态标题与内容必须安全转义。
+10. 动态标题与内容必须通过 `textContent` 安全渲染（禁止 `innerHTML` / `insertAdjacentHTML` 写入管理员输入）。
 11. 复用现有 `config` 表、公共配置接口、管理员配置接口。
 
 ---
@@ -150,7 +151,7 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 12. 管理员修改并保存后生成新版本。
 13. 新版本发布后，关闭过旧版本的玩家会重新看到通知。
 14. version 由保存逻辑自动生成，不允许管理员手动填写。
-15. 动态标题和内容必须安全转义。
+15. 动态标题和内容必须通过 `textContent` 安全渲染（禁止 `innerHTML` / `insertAdjacentHTML` 写入管理员输入）。
 16. 复用现有 config 表、公共配置接口和管理员配置接口。
 17. 新配置键为 `server_notice`。
 18. 不新增数据库表。
@@ -193,7 +194,8 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 - 字符串。
 - 保存与使用前 `trim`。
 - 空值回退「服务器通知」。
-- 前台必须 `escapeHtml` 后渲染。
+- 前台渲染：对动态标题节点 `textContent` 直接赋值为规范化后的 `title`。
+- 本流程不使用 `escapeHtml`，也不写入 `innerHTML`。
 
 **lines**
 
@@ -202,8 +204,8 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 - 每项 `trim`。
 - 过滤空行（空字符串、纯空白行）。
 - 非数组时安全回退默认内容或 `[]`。
-- 每项前台必须 `escapeHtml`。
-- 不允许把管理员输入作为 `innerHTML` 原样执行。
+- 每项前台通过 `document.createElement('li')` 创建列表项，再对 `li.textContent` 赋值。
+- 不使用 `escapeHtml`，也不允许 `insertAdjacentHTML`。
 
 **version**
 
@@ -307,8 +309,10 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 2. 若 `enabled === false` → 给 `#noticeFloating` 加 `hidden` 属性（或等价 `.notice-hidden` 类），直接返回。
 3. 若 `lines` 过滤后为空数组 → 同样隐藏 `#noticeFloating`，返回。
 4. 否则：
-   - `#noticeTitle`（动态标题节点）`textContent = title`（经 `escapeHtml` 后写入，禁止 `innerHTML`）。
-   - `#noticeLines`（动态列表节点）清空后，对每条 `line` 创建 `<li>`，文本经 `escapeHtml` 后写入 `textContent`。
+   - `#noticeTitle`（动态标题节点）直接 `textContent = title`（禁止 `innerHTML`）。
+   - 标题渲染不使用 `escapeHtml`，也不使用 `insertAdjacentHTML`。
+   - `#noticeLines`（动态列表节点）清空后，对每条 `line` 调用 `document.createElement('li')`，再 `li.textContent = line` 后 `appendChild`。
+   - 列表渲染不使用 `escapeHtml`，也不使用 `insertAdjacentHTML`。
    - 依据版本化关闭状态（见 §13）决定初始折叠/展开。
 5. 气泡 `#noticeBubble` 保留 `aria-expanded`，与 `#noticePanel` 通过 `aria-controls` 关联。
 
@@ -352,15 +356,21 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 
 ---
 
-## 15. 内容安全与转义
+## 15. 内容安全与渲染规则（统一）
 
-- `title` 使用 `escapeHtml` 后写入 `textContent`（或先 `escapeHtml` 再赋值，禁止 `innerHTML` 直接拼原值）。
-- `lines` 每一项使用 `escapeHtml` 后写入 `textContent`。
-- 禁止直接拼接未经转义的管理员输入到 `innerHTML`。
-- 链接和富文本不在本阶段范围。
-- `version` 不作为 HTML 执行（仅用于 localStorage 比较，不插入 DOM）。
-- localStorage 读写必须 `try/catch`。
-- 不记录或输出敏感配置（如管理员令牌、接口密钥）。
+本通知的动态标题与每一行内容统一采用 `textContent` 渲染：不使用 `innerHTML`、不使用 `insertAdjacentHTML`。
+本渲染流程不调用 `escapeHtml`，与转义函数无关。具体规则：
+
+1. 通知标题：取动态标题节点（如 `#noticeTitle`），对其 `textContent` 直接赋值为规范化后的 `title`。
+2. 每条通知：调用 `document.createElement('li')` 创建 `<li>`，对其 `textContent` 直接赋值为该行内容，再 `appendChild` 到列表节点（`#noticeLines`）。
+3. `version` 只用于状态比较（localStorage 版本化关闭逻辑），不插入 DOM。
+4. 禁止把管理员输入拼接到 `innerHTML`。
+5. 禁止对管理员输入使用 `insertAdjacentHTML`。
+6. 本渲染流程不调用 `escapeHtml`。
+   `textContent` 赋值本身即可保证任意字符串（含 `<script>`、`<img onerror>` 等）只作为纯文本显示。
+7. 即使输入 `<script>alert(1)</script>` 或 `<img src=x onerror=alert(1)>`，页面也只显示可见普通文字：不得生成 `script` 节点、不得生成由输入派生的 `img` 节点、不得触发 `onerror`、不得执行任何脚本、不得出现二次转义后 `&lt;script&gt;` 这类可见文本。
+
+> 说明：`escapeHtml` 与 `escapeAttr` 是项目既有工具函数（见 §2.7），但本通知渲染流程不依赖它们。链接与富文本不在本阶段范围。localStorage 读写仍必须 `try/catch`；不记录或输出敏感配置（如管理员令牌、接口密钥）。
 
 ---
 
@@ -492,7 +502,12 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 - `lines` trim 和过滤空行。
 - `lines` 非数组安全回退（对象/字符串/undefined → 默认或 `[]`）。
 - `version` 规范化（缺失 → 空字符串）。
-- 动态标题与列表转义（`escapeHtml` 后无注入）。
+- 恶意输入真实渲染（必须用最小 DOM mock 或真实 DOM 执行 `renderServerNotice`，捕获 `createElement` 调用 / `textContent` 赋值 / `appendChild` 调用 / `innerHTML` 是否被写入；不得只扫描源码是否包含 `textContent`）：
+  - 标题输入 `<img src=x onerror=alert(1)>` → 标题节点 `textContent` 保留该普通文字，不生成 `img` 节点、不产生 `onerror` 属性、不执行脚本。
+  - 通知行输入 `<script>alert(1)</script>` → 列表项 `textContent` 保留该普通文字，DOM 内不存在 `script` 节点、不执行任何脚本。
+  - DOM 内不存在由输入生成的 `img` 节点。
+  - 渲染结果不出现二次转义后的 `&lt;script&gt;` 可见文本（即 `textContent` 存的是原始 `<script>...` 字符串，不重复转义）。
+  - `innerHTML` 未被写入任何管理员内容。
 - `enabled=false` 隐藏。
 - 空 `lines` 隐藏。
 - 同版本关闭后默认折叠。
@@ -582,6 +597,6 @@ SCUM 游戏服务器官网前台右下角有一个常驻的「服务器通知」
 > 8. 清楚区分旧 `erp14-notice-collapsed` 键与新 `erp14-notice-dismissed-version` 键。
 > 9. 明确 `version` 只在保存时生成。
 > 10. 明确管理员修改后玩家重新看到。
-> 11. 明确内容安全转义（`escapeHtml`）。
+> 11. 明确内容安全渲染规则（统一用 `textContent` 赋值渲染标题与每行内容，禁止 `innerHTML` / `insertAdjacentHTML` 写入管理员输入，不依赖任何转义函数）。
 > 12. 测试分类真实可执行（A 结构 / B 沙箱行为 / C 后端 / D 浏览器）。
 > 13. 生产页同步边界准确（未同步导致 `check-frontend-sync` 非零属于预期累计差异，但必须如实记录退出码和真实失败数）。
