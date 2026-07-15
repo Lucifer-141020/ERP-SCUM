@@ -65,6 +65,14 @@ function extractCssBlock(css, selector) {
   return null;
 }
 
+// 提取 panelTemplates.homeManage 模板字符串（结束锚点为 groupManage）
+function extractHomeManageTemplate(source) {
+  var start = source.indexOf('homeManage: () =>');
+  if (start < 0) return null;
+  var end = source.indexOf('groupManage:', start);
+  return end < 0 ? source.slice(start) : source.slice(start, end);
+}
+
 // ---- 安全编译辅助 ----
 function compileExtractedFunction(source, functionName, prelude) {
   return new Function(prelude + '\n' + source + '\nreturn ' + functionName + ';')();
@@ -360,18 +368,28 @@ test('structure', 'S09. noticeClose 含明确 aria-label', function() {
   var block = INDEX_HTML.slice(idx, idx + 200);
   assert.ok(block.includes('aria-label'), 'noticeClose 无 aria-label');
 });
-test('structure', 'S10. 后台存在 #editNoticeEnabled 及其 label', function() {
-  assert.ok(INDEX_HTML.includes('id="editNoticeEnabled"'), 'editNoticeEnabled 不存在');
-  assert.ok(INDEX_HTML.indexOf('for="editNoticeEnabled"') >= 0, '缺少 for="editNoticeEnabled" label');
+test('structure', 'S10. 后台 homeManage 存在 #editNoticeEnabled 及其 label', function() {
+  var tmpl = extractHomeManageTemplate(MAIN_JS);
+  assert.ok(tmpl, 'homeManage 模板不存在');
+  assert.ok(tmpl.includes('id="editNoticeEnabled"'), 'editNoticeEnabled 不存在');
+  assert.ok(tmpl.indexOf('for="editNoticeEnabled"') >= 0, '缺少 for="editNoticeEnabled" label');
 });
-test('structure', 'S11. 后台存在 #editNoticeTitle、#editNoticeLines 及其 label', function() {
-  assert.ok(INDEX_HTML.includes('id="editNoticeTitle"'), 'editNoticeTitle 不存在');
-  assert.ok(INDEX_HTML.includes('id="editNoticeLines"'), 'editNoticeLines 不存在');
-  assert.ok(INDEX_HTML.indexOf('for="editNoticeTitle"') >= 0, '缺少 for="editNoticeTitle" label');
+test('structure', 'S11. 后台 homeManage 存在 #editNoticeTitle、#editNoticeLines 及其 label', function() {
+  var tmpl = extractHomeManageTemplate(MAIN_JS);
+  assert.ok(tmpl, 'homeManage 模板不存在');
+  assert.ok(tmpl.includes('id="editNoticeTitle"'), 'editNoticeTitle 不存在');
+  assert.ok(tmpl.indexOf('for="editNoticeTitle"') >= 0, '缺少 for="editNoticeTitle" label');
+  assert.ok(tmpl.includes('id="editNoticeLines"'), 'editNoticeLines 不存在');
+  assert.ok(tmpl.indexOf('for="editNoticeLines"') >= 0, '缺少 for="editNoticeLines" label');
 });
-test('structure', 'S12. 后台存在 #saveServerNotice(type=button) 及 #saveNoticeHint', function() {
-  assert.ok(INDEX_HTML.includes('id="saveServerNotice"'), 'saveServerNotice 不存在');
-  assert.ok(INDEX_HTML.includes('id="saveNoticeHint"'), 'saveNoticeHint 不存在');
+test('structure', 'S12. 后台 homeManage 存在 #saveServerNotice(type=button) 及 #saveNoticeHint', function() {
+  var tmpl = extractHomeManageTemplate(MAIN_JS);
+  assert.ok(tmpl, 'homeManage 模板不存在');
+  var btnIdx = tmpl.indexOf('id="saveServerNotice"');
+  assert.ok(btnIdx >= 0, 'saveServerNotice 不存在');
+  var btnBlock = tmpl.slice(btnIdx, btnIdx + 200);
+  assert.ok(btnBlock.indexOf('type="button"') >= 0 || btnBlock.indexOf("type='button'") >= 0, 'saveServerNotice 无 type=button');
+  assert.ok(tmpl.includes('id="saveNoticeHint"'), 'saveNoticeHint 不存在');
 });
 
 // ===========================================================================
