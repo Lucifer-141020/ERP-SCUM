@@ -97,9 +97,26 @@ function buildNoticeSandbox(opts) {
   var pendingPromise = null;
   var pendingResolve = null;
   var pendingReject = null;
+  var fetchPendingMode = false;
+  var _pendingResolved = false;
 
   // DOM mock
   var els = {};
+  // 预创建关键 DOM 节点，确保 sb.els.* 在测试设置值前存在
+  function ensureEl(id, extra) { return makeEl(id, extra); }
+  // 后台表单
+  ensureEl('editNoticeEnabled', { tagName: 'INPUT', type: 'checkbox' });
+  ensureEl('editNoticeTitle', { tagName: 'INPUT', type: 'text' });
+  ensureEl('editNoticeLines', { tagName: 'TEXTAREA' });
+  ensureEl('saveServerNotice', { tagName: 'BUTTON', type: 'button' });
+  ensureEl('saveNoticeHint', { tagName: 'DIV' });
+  // 前台通知
+  ensureEl('noticeFloating', { tagName: 'DIV' });
+  ensureEl('noticeBubble', { tagName: 'BUTTON' });
+  ensureEl('noticePanel', { tagName: 'DIV' });
+  ensureEl('noticeClose', { tagName: 'BUTTON' });
+  ensureEl('noticeTitle', { tagName: 'STRONG' });
+  ensureEl('noticeLines', { tagName: 'UL' });
   function makeEl(id, extra) {
     if (els[id]) return els[id];
     var el = {
@@ -153,8 +170,7 @@ function buildNoticeSandbox(opts) {
     state.fetchCalls.push({url:url, opts:options});
     if (fetchReject) return Promise.reject(fetchReject);
     if (fetchResolve) return Promise.resolve(fetchResolve);
-    // Pending mode: return a controllable promise
-    if (opts && opts._pending) {
+    if (fetchPendingMode) {
       pendingPromise = new Promise(function(resolve, reject) {
         pendingResolve = resolve;
         pendingReject = reject;
@@ -246,11 +262,17 @@ function buildNoticeSandbox(opts) {
     getToastCalls: function() { return state.toastCalls; },
     getDomCalls: function() { return state.domCalls; },
     getStorageCalls: function() { return state.storageCalls; },
-    injectFetchSuccess: function(body) { fetchResolve = body || {ok:true, status:200, json:function(){return Promise.resolve({code:200,data:{}});}}; fetchReject = null; },
-    injectFetchError: function(msg) { fetchReject = new Error(msg); fetchResolve = null; },
-    injectFetchHttpError: function(status, msg) { fetchResolve = {ok:false, status:status, json:function(){return Promise.resolve({code:status, message:msg});}}; fetchReject = null; },
-    injectFetchPending: function() { fetchResolve = null; fetchReject = null; return { resolve: function(v){ if(pendingResolve) pendingResolve(v); }, reject: function(e){ if(pendingReject) pendingReject(e); } }; },
-    resetFetch: function() { fetchResolve = null; fetchReject = null; state.fetchCalls = []; },
+    injectFetchSuccess: function(body) { fetchPendingMode = false; fetchResolve = body || {ok:true, status:200, json:function(){return Promise.resolve({code:200,data:{}});}}; fetchReject = null; },
+    injectFetchError: function(msg) { fetchPendingMode = false; fetchReject = new Error(msg); fetchResolve = null; },
+    injectFetchHttpError: function(status, msg) { fetchPendingMode = false; fetchResolve = {ok:false, status:status, json:function(){return Promise.resolve({code:status, message:msg});}}; fetchReject = null; },
+    injectFetchPending: function() {
+      fetchResolve = null; fetchReject = null; fetchPendingMode = true; _pendingResolved = false;
+      return {
+        resolve: function(v){ if (!_pendingResolved && pendingResolve) { _pendingResolved = true; fetchPendingMode = false; pendingResolve(v); } },
+        reject: function(e){ if (!_pendingResolved && pendingReject) { _pendingResolved = true; fetchPendingMode = false; pendingReject(e); } }
+      };
+    },
+    resetFetch: function() { fetchPendingMode = false; fetchResolve = null; fetchReject = null; state.fetchCalls = []; },
   };
 }
 
@@ -324,12 +346,24 @@ async function runGroup(label, tests) {
       _sb.fns.applyFullBackendConfig({ serverInfo: {} });
     }
   } catch(e) { errors.push('配置沙箱环境依赖缺失: ' + e.message); }
+  // 7. 保存沙箱 DOM 和 pending 控制可用
+  try {
+    var _sb7 = buildNoticeSandbox();
+    if (!_sb7.els.editNoticeLines) errors.push('editNoticeLines 未预创建');
+    if (typeof _sb7.els.editNoticeLines.value !== 'string') errors.push('editNoticeLines.value 非字符串');
+    _sb7.els.editNoticeLines.value = '测试行';
+    if (_sb7.els.editNoticeLines.value !== '测试行') errors.push('editNoticeLines.value 写入后读取不一致');
+    var _p = _sb7.injectFetchPending();
+    if (typeof _p.resolve !== 'function' || typeof _p.reject !== 'function') errors.push('injectFetchPending 未返回 resolve/reject');
+    // 确认 injectFetchSuccess 会将 fetchPendingMode 恢复为 false
+    _sb7.injectFetchSuccess({ok:true, status:200});
+  } catch(e) { errors.push('保存沙箱 DOM/pending 控制不可用: ' + e.message); }
   if (errors.length) {
     console.error('Harness Preflight 失败:');
     errors.forEach(function(e){ console.error('  ' + e); });
     process.exit(1);
   }
-  console.log('Harness Preflight: 6/6 通过\n');
+  console.log('Harness Preflight: 7/7 通过\n');
 })();
 
 // ===========================================================================
