@@ -53,69 +53,172 @@ function extractRouteBlock(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-// ---- 沙箱构建 ----
-function buildSubmitSandbox(fetchResponse) {
+// ---- 标准化函数提取（修复 runNormalize：函数声明前不能加 var） ----
+function runNormalize(input) {
+  const src = extractFn(MAIN_JS, 'normalizeRequestItem');
+  if (!src) throw new Error('normalizeRequestItem 不存在');
+
+  const normalize = new Function(
+    src + '\nreturn normalizeRequestItem;'
+  )();
+
+  return normalize(input);
+}
+
+// ---- 异步沙箱（修复 buildSubmitSandbox：通过 new Function 参数注入 fetchResponse，await submitRequest） ----
+async function buildSubmitSandbox(fetchResponse) {
   const capture = {
-    fetchUrl: null, fetchOpts: null, fetchBody: null,
-    closeCallCount: 0, renderCallCount: 0, switchRouteArg: null,
-    toasts: [], hintText: '',
+    fetchUrl: null,
+    fetchOpts: null,
+    closeCallCount: 0,
+    renderCallCount: 0,
+    switchRouteArg: null,
+    toasts: [],
+    hintText: '',
+    requests: [],
+    pendingRequestImages: [],
     unhandled: null
   };
 
   const fnSrc = extractFn(MAIN_JS, 'submitRequest');
-  if (!fnSrc) return null;
+  if (!fnSrc) throw new Error('submitRequest 不存在');
 
-  const sandboxSrc = `
-    var requests = [];
-    var pendingRequestImages = ['data:image/png;base64,TEST'];
-    var activePlayerName = '测试玩家';
-    var captured = ${JSON.stringify({})};
-    var backendUrl = function(p) { return p; };
-    var addLog = function() {};
-    var saveLocalData = function() {};
-    var renderAll = function() { capture.renderCallCount++; };
-    var switchRoute = function(r) { capture.switchRouteArg = r; };
-    var showToast = function(msg, type) { capture.toasts.push({msg:msg,type:type}); };
-    var closeRequestModal = function() { capture.closeCallCount++; };
-    var requestSubmitHint = { set textContent(v) { capture.hintText = v; }, get textContent() { return capture.hintText; } };
-    var requestTitle = { value: '图片测试建议' };
-    var requestText = { value: '这是带图片的测试建议内容' };
-    var requestCategory = { value: 'BUG' };
-    var requestContact = { value: '测试联系方式' };
-    var document = {
-      getElementById: function(id) {
-        if (id === 'requestTitle') return requestTitle;
-        if (id === 'requestText') return requestText;
-        if (id === 'requestCategory') return requestCategory;
-        if (id === 'requestContact') return requestContact;
-        if (id === 'requestSubmitHint') return requestSubmitHint;
-        return { value:'', textContent:'', classList:{add:function(){},remove:function(){}} };
-      },
-      querySelectorAll: function() { return []; }
-    };
-    var fetch = ${fetchResponse.toString()};
-    var event = { preventDefault: function() {} };
-    var self = this;
-    ${fnSrc}
-    try {
-      var result = submitRequest(event);
-      if (result && typeof result.then === 'function') {
-        result.catch(function(e) { capture.unhandled = e.message; });
-      }
-    } catch(e) {
-      capture.unhandled = e.message;
-    }
-  `;
-  new Function('capture', sandboxSrc)(capture);
-  return capture;
+  const factory = new Function(
+    'capture',
+    'fetchResponse',
+    `
+      return (async function () {
+        var requests = [];
+        var pendingRequestImages = ['data:image/png;base64,TEST'];
+        var activePlayerName = '测试玩家';
+
+        var backendUrl = function(path) { return path; };
+        var addLog = function() {};
+        var saveLocalData = function() {};
+        var renderAll = function() {
+          capture.renderCallCount++;
+        };
+        var switchRoute = function(route) {
+          capture.switchRouteArg = route;
+        };
+        var showToast = function(message, type) {
+          capture.toasts.push({ msg: message, type: type });
+        };
+        var closeRequestModal = function() {
+          capture.closeCallCount++;
+        };
+
+        var requestSubmitHint = {
+          set textContent(value) {
+            capture.hintText = value;
+          },
+          get textContent() {
+            return capture.hintText;
+          }
+        };
+
+        var fields = {
+          requestTitle: {
+            value: '图片测试建议',
+            classList: { add(){}, remove(){} }
+          },
+          requestText: {
+            value: '这是带图片的测试建议内容',
+            classList: { add(){}, remove(){} }
+          },
+          requestCategory: {
+            value: 'BUG',
+            classList: { add(){}, remove(){} }
+          },
+          requestContact: {
+            value: '测试联系方式',
+            classList: { add(){}, remove(){} }
+          },
+          requestSubmitHint: requestSubmitHint
+        };
+
+        var document = {
+          getElementById: function(id) {
+            return fields[id] || {
+              value: '',
+              textContent: '',
+              classList: { add(){}, remove(){} }
+            };
+          },
+          querySelectorAll: function() {
+            return [];
+          }
+        };
+
+        var fetch = async function(url, options) {
+          capture.fetchUrl = url;
+          capture.fetchOpts = options;
+          return await fetchResponse(url, options);
+        };
+
+        var event = {
+          preventDefault: function() {}
+        };
+
+        ${fnSrc}
+
+        try {
+          await submitRequest(event);
+        } catch (error) {
+          capture.unhandled = error.message;
+        }
+
+        capture.requests = requests.map(function(item) {
+          return {
+            id: item.id,
+            text: item.text,
+            images: item.images
+          };
+        });
+
+        capture.pendingRequestImages =
+          pendingRequestImages.slice();
+
+        return capture;
+      })();
+    `
+  );
+
+  return await factory(capture, fetchResponse);
 }
 
-let passed = 0, failed = 0, total = 0;
-const failures = [];
+// ---- fetch mock 复用 helper ----
+async function successFetch() {
+  return {
+    ok: true,
+    status: 201,
+    json: async () => ({
+      code: 200,
+      data: { id: 123 }
+    })
+  };
+}
+
+async function failedFetch() {
+  throw new Error('图片保存失败');
+}
+
+async function badRequestFetch() {
+  return {
+    ok: false,
+    status: 400,
+    json: async () => ({
+      code: 400,
+      message: '内容不能为空'
+    })
+  };
+}
+
+// ---- 测试登记（不再同步执行，避免重复运行） ----
+const tests = [];
+
 function test(name, fn) {
-  total++;
-  try { fn(); passed++; console.log('  \u2713 ' + name); }
-  catch (e) { failed++; failures.push(name); console.log('  \u2717 ' + name + '\n    ' + (e.message || e)); }
+  tests.push({ name, fn });
 }
 
 // ===========================================================================
@@ -157,208 +260,142 @@ test('A5. 成功后使用后端返回的 id', () => {
 });
 
 // ---- 成功沙箱 ----
-test('A6. 成功沙箱：请求地址为 /api/requests', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A6. 成功沙箱：请求地址为 /api/requests', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  // 捕获请求信息
-  const url = globalThis._fetchUrl;
-  assert.ok(url && url.includes('/api/requests'), 'URL 不含 /api/requests, 实际=' + url);
-  // 清理
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
+  assert.strictEqual(capture.fetchUrl, '/api/requests', 'URL 不符, 实际=' + capture.fetchUrl);
 });
 
-test('A7. 成功沙箱：method 为 POST', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A7. 成功沙箱：method 为 POST', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  const opts = globalThis._fetchOpts;
-  assert.ok(opts && opts.method === 'POST', 'method=' + (opts && opts.method));
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
+  assert.strictEqual(capture.fetchOpts.method, 'POST', 'method=' + (capture.fetchOpts && capture.fetchOpts.method));
 });
 
-test('A8. 成功沙箱：content-type 为 application/json', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A8. 成功沙箱：content-type 为 application/json', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  const ct = globalThis._fetchOpts && globalThis._fetchOpts.headers && globalThis._fetchOpts.headers['content-type'];
-  assert.ok(ct === 'application/json', 'content-type=' + ct);
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
+  const ct = capture.fetchOpts.headers && capture.fetchOpts.headers['content-type'];
+  assert.strictEqual(ct, 'application/json', 'content-type=' + ct);
 });
 
-test('A9. 成功沙箱：body.content 等于 requestText', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A9. 成功沙箱：body.content 等于 requestText', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  const body = JSON.parse(globalThis._fetchOpts.body);
-  assert.ok(body.content === '这是带图片的测试建议内容', 'body.content=' + body.content);
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
+  const body = JSON.parse(capture.fetchOpts.body);
+  assert.strictEqual(body.content, '这是带图片的测试建议内容', 'body.content=' + body.content);
 });
 
-test('A10. 成功沙箱：body 含 text 而非 content 替代', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A10. 成功沙箱：body 含 content 字段', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  const body = JSON.parse(globalThis._fetchOpts.body);
-  // 后端 POST 读 content，前端发出去的是 text → 缺陷
+  const body = JSON.parse(capture.fetchOpts.body);
   assert.ok(body.content, 'body 无 content 字段');
-  // 如果 text 也存在但不是 content → 检查是否为正确的 content 值
   assert.ok(!body.text || body.text === '这是带图片的测试建议内容',
     'body 中 text=' + body.text + ' 与 content=' + body.content + ' 不一致');
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
 });
 
-test('A11. 成功沙箱：body.images 是数组', () => {
-  const fnResp = function(url, opts) {
-    globalThis._fetchUrl = url; globalThis._fetchOpts = opts;
-    return Promise.resolve({ ok: true, status: 201, json: function() { return Promise.resolve({ code: 200, data: { id: 123 } }); } });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A11. 成功沙箱：body.images 是数组', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  const body = JSON.parse(globalThis._fetchOpts.body);
+  const body = JSON.parse(capture.fetchOpts.body);
   assert.ok(Array.isArray(body.images), 'images 不是数组');
   assert.ok(body.images[0] && body.images[0].includes('TEST'), 'images 内容不符');
-  delete globalThis._fetchUrl; delete globalThis._fetchOpts;
 });
 
-test('A12. 成功沙箱：requests 有 1 项', () => {
-  const fnResp = function(url, opts) { return Promise.resolve({ ok: true, status: 201 }); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A12. 成功沙箱：requests 有 1 项且 renderCallCount 为 1', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  // 当前实现 requests.unshift 在 fetch 前执行 → 始终有 1 项
-  // 但无法从沙箱外直接读取 requests，通过 closeCallCount 间接验证执行完成
-  assert.ok(capture.closeCallCount === 1, 'closeCallCount=' + capture.closeCallCount);
+  assert.strictEqual(capture.requests.length, 1, 'requests.length=' + capture.requests.length);
+  assert.strictEqual(capture.renderCallCount, 1, 'renderCallCount=' + capture.renderCallCount);
 });
 
-test('A13. 成功沙箱：closeRequestModal 调用 1 次', () => {
-  const fnResp = function(url, opts) { return Promise.resolve({ ok: true, status: 201 }); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A13. 成功沙箱：closeRequestModal 调用 1 次', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  assert.ok(capture.closeCallCount === 1, 'closeCallCount=' + capture.closeCallCount);
+  assert.strictEqual(capture.closeCallCount, 1, 'closeCallCount=' + capture.closeCallCount);
 });
 
-test('A14. 成功沙箱：switchRoute 收到 requests', () => {
-  const fnResp = function(url, opts) { return Promise.resolve({ ok: true, status: 201 }); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A14. 成功沙箱：switchRoute 收到 requests', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  assert.ok(capture.switchRouteArg && capture.switchRouteArg.includes('request'), 'switchRoute 参数=' + capture.switchRouteArg);
+  assert.strictEqual(capture.switchRouteArg, 'requests', 'switchRoute 参数=' + capture.switchRouteArg);
 });
 
-test('A15. 成功沙箱：成功 toast 出现 1 次', () => {
-  const fnResp = function(url, opts) { return Promise.resolve({ ok: true, status: 201 }); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A15. 成功沙箱：成功 toast 出现 1 次', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
   const successToasts = capture.toasts.filter(t => t.msg.includes('建议已提交到后台'));
-  assert.ok(successToasts.length === 1, '成功 toast 出现 ' + successToasts.length + ' 次');
+  assert.strictEqual(successToasts.length, 1, '成功 toast 出现 ' + successToasts.length + ' 次');
 });
 
-test('A16. 成功沙箱：success toast 含"建议已提交到后台"', () => {
-  const fnResp = function(url, opts) { return Promise.resolve({ ok: true, status: 201 }); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A16. 成功沙箱：success toast 含"建议已提交到后台"', async () => {
+  const capture = await buildSubmitSandbox(successFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
   const msg = capture.toasts.map(t => t.msg).join('|');
   assert.ok(msg.includes('建议已提交到后台'), 'toast 不含建议已提交: ' + msg);
+  assert.strictEqual(capture.hintText, '', 'hintText=' + capture.hintText);
 });
 
 // ---- 网络失败分支 ----
-test('A17. 失败沙箱：requests 长度仍为 0', () => {
-  const fnResp = function() { return Promise.reject(new Error('图片保存失败')); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A17. 失败沙箱：requests 长度仍为 0 且不触发渲染/切换/关闭', async () => {
+  const capture = await buildSubmitSandbox(failedFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  // 当前实现 requests.unshift 在 fetch 前执行 → 失败后仍保留，此为缺陷
-  assert.ok(capture.closeCallCount === 0, 'closeCallCount=' + capture.closeCallCount);
+  assert.strictEqual(capture.requests.length, 0, 'requests.length=' + capture.requests.length);
+  assert.strictEqual(capture.renderCallCount, 0, 'renderCallCount=' + capture.renderCallCount);
+  assert.strictEqual(capture.switchRouteArg, null, 'switchRouteArg=' + capture.switchRouteArg);
+  assert.strictEqual(capture.pendingRequestImages.length, 1, 'pendingRequestImages.length=' + capture.pendingRequestImages.length);
 });
 
-test('A18. 失败沙箱：closeRequestModal 调用 0 次', () => {
-  const fnResp = function() { return Promise.reject(new Error('图片保存失败')); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A18. 失败沙箱：closeRequestModal 调用 0 次', async () => {
+  const capture = await buildSubmitSandbox(failedFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  assert.ok(capture.closeCallCount === 0, 'closeCallCount=' + capture.closeCallCount);
+  assert.strictEqual(capture.closeCallCount, 0, 'closeCallCount=' + capture.closeCallCount);
 });
 
-test('A19. 失败沙箱：不显示成功 toast', () => {
-  const fnResp = function() { return Promise.reject(new Error('图片保存失败')); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A19. 失败沙箱：不显示成功 toast', async () => {
+  const capture = await buildSubmitSandbox(failedFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
   const hasSuccess = capture.toasts.some(t => t.msg.includes('建议已提交到后台'));
   assert.ok(!hasSuccess, '出现成功 toast');
 });
 
-test('A20. 失败沙箱：requestSubmitHint 含错误信息', () => {
-  const fnResp = function() { return Promise.reject(new Error('图片保存失败')); };
-  const capture = buildSubmitSandbox(fnResp);
+test('A20. 失败沙箱：requestSubmitHint 含错误信息', async () => {
+  const capture = await buildSubmitSandbox(failedFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  assert.ok(capture.hintText && capture.hintText.length > 0, 'hint 为空: ' + capture.hintText);
+  assert.strictEqual(capture.hintText, '图片保存失败', 'hint=' + capture.hintText);
 });
 
-test('A21. 失败沙箱：无未处理异常', () => {
-  const fnResp = function() { return Promise.reject(new Error('图片保存失败')); };
-  const capture = buildSubmitSandbox(fnResp);
-  assert.ok(capture && !capture.unhandled, '存在未处理异常: ' + (capture && capture.unhandled));
+test('A21. 失败沙箱：无未处理异常', async () => {
+  const capture = await buildSubmitSandbox(failedFetch);
+  assert.strictEqual(capture.unhandled, null, '存在未处理异常: ' + capture.unhandled);
 });
 
 // ---- HTTP 4xx 分支 ----
-test('A22. 4xx 沙箱：requestSubmitHint 显示服务器错误', () => {
-  const fnResp = function(url, opts) {
-    return Promise.resolve({
-      ok: false, status: 400,
-      json: function() { return Promise.resolve({ code: 400, message: '内容不能为空' }); }
-    });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A22. 4xx 沙箱：requestSubmitHint 显示服务器错误且未写入列表', async () => {
+  const capture = await buildSubmitSandbox(badRequestFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
-  assert.ok(capture.hintText && capture.hintText.length > 0, 'hint 为空');
+  assert.strictEqual(capture.hintText, '内容不能为空', 'hint=' + capture.hintText);
+  assert.strictEqual(capture.requests.length, 0, 'requests.length=' + capture.requests.length);
+  assert.strictEqual(capture.closeCallCount, 0, 'closeCallCount=' + capture.closeCallCount);
 });
 
-test('A23. 4xx 沙箱：不显示成功 toast', () => {
-  const fnResp = function(url, opts) {
-    return Promise.resolve({
-      ok: false, status: 400,
-      json: function() { return Promise.resolve({ code: 400, message: '内容不能为空' }); }
-    });
-  };
-  const capture = buildSubmitSandbox(fnResp);
+test('A23. 4xx 沙箱：不显示成功 toast', async () => {
+  const capture = await buildSubmitSandbox(badRequestFetch);
   assert.ok(capture && !capture.unhandled, '沙箱异常: ' + (capture && capture.unhandled));
   const hasSuccess = capture.toasts.some(t => t.msg.includes('建议已提交到后台'));
   assert.ok(!hasSuccess, '出现成功 toast');
 });
 
-test('A24. 4xx 沙箱：无未处理异常', () => {
-  const fnResp = function(url, opts) {
-    return Promise.resolve({
-      ok: false, status: 400,
-      json: function() { return Promise.resolve({ code: 400, message: '内容不能为空' }); }
-    });
-  };
-  const capture = buildSubmitSandbox(fnResp);
-  assert.ok(capture && !capture.unhandled, '存在未处理异常: ' + (capture && capture.unhandled));
+test('A24. 4xx 沙箱：无未处理异常', async () => {
+  const capture = await buildSubmitSandbox(badRequestFetch);
+  assert.strictEqual(capture.unhandled, null, '存在未处理异常: ' + capture.unhandled);
 });
 
 // ===========================================================================
 // B. 请求数据标准化测试
 // ===========================================================================
 console.log('\n--- B. 请求数据标准化测试 ---');
-
-function runNormalize(input) {
-  const src = extractFn(MAIN_JS, 'normalizeRequestItem');
-  if (!src) throw new Error('normalizeRequestItem 不存在');
-  return new Function('var ' + src + '; return normalizeRequestItem;')()(input);
-}
 
 test('B25. normalizeRequestItem 存在', () => {
   assert.ok(extractFn(MAIN_JS, 'normalizeRequestItem'), 'normalizeRequestItem 不存在');
@@ -546,7 +583,39 @@ test('D48. renderRequests 保留 data-open-image', () => {
 });
 
 // ===========================================================================
-// 运行器
+// 异步运行器（仅此负责执行，避免每条测试被执行两次）
 // ===========================================================================
-console.log('\n=== 总计: ' + passed + '/' + total + ' 通过, ' + failed + ' 失败 ===');
-if (failures.length) { console.log('失败:'); failures.forEach(function(n) { console.log('  ✗ ' + n); }); process.exitCode = 1; }
+async function run() {
+  let passed = 0;
+  let failed = 0;
+  const failures = [];
+
+  for (const item of tests) {
+    try {
+      await item.fn();
+      passed++;
+      console.log('  ✓ ' + item.name);
+    } catch (error) {
+      failed++;
+      failures.push(item.name);
+      console.log('  ✗ ' + item.name);
+      console.log('    ' + (error.message || error));
+    }
+  }
+
+  console.log(
+    '\n=== 总计: ' + passed + '/' + tests.length +
+    ' 通过, ' + failed + ' 失败 ==='
+  );
+
+  if (failures.length) {
+    console.log('失败:');
+    failures.forEach(name => console.log('  ✗ ' + name));
+    process.exitCode = 1;
+  }
+}
+
+run().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
