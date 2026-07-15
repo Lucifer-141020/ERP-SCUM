@@ -200,7 +200,6 @@
     let panelDirty = false;
     let activeRequestStatus = '';
     let activePlayerName = '';
-    let expandedRequestId = null;
     let playerSessions = [];
     let expandedFixed = false;
     let expandedSignup = false;
@@ -849,37 +848,6 @@ ${renderManagedImageField({
     }
 
 
-    function buildRequestDetail(item, requestId) {
-      const rows = [];
-      function detailRow(label, valueHtml) {
-        return '<div class="request-detail-row"><span class="request-detail-label">' + escapeHtml(label) + '</span><div class="request-detail-value">' + valueHtml + '</div></div>';
-      }
-      rows.push(detailRow('建议内容', escapeHtml(item.text || '')));
-      if (item.created_at) rows.push(detailRow('提交时间', escapeHtml(item.created_at)));
-      rows.push(detailRow('提交人', escapeHtml(item.user || '')));
-      rows.push(detailRow('分类', escapeHtml(requestCategoryLabel(item.category || ''))));
-      rows.push(detailRow('状态', escapeHtml(requestLabel(item.status))));
-      var admin = getRequestAdminDetail(item, item.status);
-      if (admin) rows.push(detailRow(admin.label, escapeHtml(admin.value)));
-      var imagesHtml = '';
-      if (Array.isArray(item.images) && item.images.length) {
-        imagesHtml = '<div class="request-detail-images">' + item.images.map(function(src) {
-          return '<img class="request-detail-img" src="' + escapeAttr(src || '') + '" alt="' + escapeAttr(item.title || '建议图片') + '" loading="lazy">';
-        }).join('') + '</div>';
-      }
-      return '<div class="request-detail-inner">' + rows.join('') + imagesHtml + '</div>';
-    }
-
-    function resetExpandedRequest() {
-      expandedRequestId = null;
-    }
-
-    function toggleRequestDetail(requestId) {
-      if (!requestId) return;
-      expandedRequestId = (expandedRequestId === requestId) ? null : requestId;
-      renderRequests();
-    }
-
     function getCurrentVoterName() {
       return (activePlayerName || localStorage.getItem('erp14-player-name') || '').trim();
     }
@@ -1157,7 +1125,7 @@ ${renderManagedImageField({
             <div class="request-head"><h3>${escapeHtml(item.title)}</h3><span class="tag ${item.status === 'rejected' ? 'danger' : item.status === 'done' ? 'green' : item.status === 'planned' ? 'blue' : 'amber'}">${requestLabel(item.status)}</span></div>
             <p>${escapeHtml(item.text)}</p>
             <div class="tag-row"><span class="tag">提交人：${escapeHtml(item.user)}</span><span class="tag">分类：${escapeHtml(item.category || '优化')}</span><span class="tag">联系方式：${escapeHtml(item.contact || '未填写')}</span><span class="tag">图片 ${Array.isArray(item.images) ? item.images.length : 0}</span><span class="tag">同意 ${item.agree || 0} · 否定 ${item.disagree || 0}</span></div>
-            ${Array.isArray(item.images) && item.images.length ? `<div class="request-images">${item.images.slice(0, 5).map(src => `<button class="request-thumb" type="button" data-open-image="${escapeAttr(src)}" data-gallery="admin-request-${index}" data-image-title="${escapeAttr(item.title)}" style="background-image:url('${escapeAttr(src)}')"></button>`).join('')}</div>` : ''}
+            ${Array.isArray(item.images) && item.images.length ? `<div class="request-images">${item.images.slice(0, 5).map((src, imageIndex) => `<button class="request-thumb admin-request-thumb" type="button" data-open-image="${escapeAttr(src)}" data-gallery="admin-request-${index}" data-image-index="${imageIndex}" data-image-title="${escapeAttr(item.title)}" aria-label="查看大图：${escapeAttr(item.title)}" title="点击查看大图" style="background-image:url('${escapeAttr(src)}')"></button>`).join('')}</div>` : ''}
             <div class="grid two">
               <label>处理状态<select class="request-status-select" data-request-status="${index}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>待讨论</option><option value="planned" ${item.status === 'planned' ? 'selected' : ''}>已计划</option><option value="done" ${item.status === 'done' ? 'selected' : ''}>已完成</option><option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>已拒绝</option></select></label>
               <label>快速操作<div class="manage-actions"><button class="mini-btn" data-action="view-request" data-index="${index}">查看</button><button class="mini-btn" data-action="move-request-up" data-index="${index}">上移</button><button class="mini-btn" data-action="move-request-down" data-index="${index}">下移</button><button class="btn-danger" data-action="delete-request" data-index="${index}">删除</button></div></label>
@@ -2157,14 +2125,6 @@ ${renderManagedImageField({
         const frontStatus = normalizeRequestStatus(item.status);
         const canVote = frontStatus === 'pending';
         const playerVote = canVote ? getPlayerVote(item, index) : '';
-        const requestId = getRequestId(item, index);
-        const isExpanded = expandedRequestId === requestId;
-        const detailBtn = requestId
-          ? '<button class="mini-btn" type="button" data-action="toggle-request-detail" data-request-id="' + escapeAttr(requestId) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="request-detail-' + escapeAttr(requestId) + '">' + (isExpanded ? '收起详情' : '查看详情') + '</button>'
-          : '';
-        const detailRegion = requestId
-          ? '<div class="request-detail" id="request-detail-' + escapeAttr(requestId) + '" role="region" aria-label="建议详情"' + (isExpanded ? '' : ' hidden') + '>' + buildRequestDetail(item, requestId) + '</div>'
-          : '';
         var statusNote = '';
         var adminDetail = getRequestAdminDetail(item, item.status);
         if (adminDetail) {
@@ -2185,13 +2145,11 @@ ${renderManagedImageField({
           <div class="vote-row">
             <span class="vote-counts" data-vote-count="${index}"><span>同意 <strong>${item.agree || 0}</strong></span><span>否定 <strong class="bad">${item.disagree || 0}</strong></span></span>
             <div class="vote-actions">
-              ${detailBtn}
               ${voteActions}
               <button class="mini-btn" data-toast="讨论窗口已预留">讨论</button>
             </div>
           </div>
           ${statusNote}
-          ${detailRegion}
         </article>`;
       }).join('');
       document.getElementById('requestGrid').innerHTML = html || '<div class="card pad">没有匹配的玩家建议。</div>';
@@ -4022,12 +3980,11 @@ ${item.text}`);
       });
     });
     document.querySelectorAll('[data-toast]').forEach(el => el.addEventListener('click', () => showToast(el.dataset.toast)));
-    document.getElementById('requestSearch').addEventListener('input', function() { resetExpandedRequest(); renderRequests(); });
+    document.getElementById('requestSearch').addEventListener('input', function() { renderRequests(); });
     document.querySelectorAll('#requestTabs button').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#requestTabs button').forEach(item => item.classList.remove('active'));
         btn.classList.add('active');
-        resetExpandedRequest();
         renderRequests();
       });
     });
@@ -4035,7 +3992,6 @@ ${item.text}`);
       btn.addEventListener('click', () => {
         document.querySelectorAll('#requestCategoryFilters button').forEach(item => item.classList.remove('active'));
         btn.classList.add('active');
-        resetExpandedRequest();
         renderRequests();
       });
     });
@@ -4088,11 +4044,6 @@ ${item.text}`);
         voteRequest(Number(frontVote.dataset.index), frontVote.dataset.vote || 'agree');
         return;
       }
-      const detailTrigger = event.target.closest('[data-action="toggle-request-detail"]');
-      if (detailTrigger && !detailTrigger.closest('#panelMain')) {
-        toggleRequestDetail(detailTrigger.dataset.requestId);
-        return;
-      }
       const signupTrigger = event.target.closest('[data-open-signup]');
       if (signupTrigger) {
         openEventSignup(Number(signupTrigger.dataset.openSignup));
@@ -4129,7 +4080,6 @@ ${item.text}`);
     });
 
     function renderAll() {
-      resetExpandedRequest();
       renderHero();
       renderHeroCarousel();
       renderHomeStats();
