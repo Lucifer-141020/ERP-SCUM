@@ -854,9 +854,9 @@ ${renderManagedImageField({
       function detailRow(label, valueHtml) {
         return '<div class="request-detail-row"><span class="request-detail-label">' + escapeHtml(label) + '</span><div class="request-detail-value">' + valueHtml + '</div></div>';
       }
-      rows.push(detailRow('建议内容', escapeHtml(item.text)));
+      rows.push(detailRow('建议内容', escapeHtml(item.text || '')));
       if (item.created_at) rows.push(detailRow('提交时间', escapeHtml(item.created_at)));
-      rows.push(detailRow('提交人', escapeHtml(item.user)));
+      rows.push(detailRow('提交人', escapeHtml(item.user || '')));
       rows.push(detailRow('分类', escapeHtml(requestCategoryLabel(item.category || ''))));
       rows.push(detailRow('状态', escapeHtml(requestLabel(item.status))));
       var admin = getRequestAdminDetail(item, item.status);
@@ -864,7 +864,7 @@ ${renderManagedImageField({
       var imagesHtml = '';
       if (Array.isArray(item.images) && item.images.length) {
         imagesHtml = '<div class="request-detail-images">' + item.images.map(function(src) {
-          return '<img class="request-detail-img" src="' + escapeAttr(src) + '" alt="' + escapeAttr(item.title || '建议图片') + '" loading="lazy">';
+          return '<img class="request-detail-img" src="' + escapeAttr(src || '') + '" alt="' + escapeAttr(item.title || '建议图片') + '" loading="lazy">';
         }).join('') + '</div>';
       }
       return '<div class="request-detail-inner">' + rows.join('') + imagesHtml + '</div>';
@@ -2168,10 +2168,8 @@ ${renderManagedImageField({
         var statusNote = '';
         var adminDetail = getRequestAdminDetail(item, item.status);
         if (adminDetail) {
-          if (adminDetail) {
-            var noteCls = item.status === 'done' ? ' done' : item.status === 'rejected' ? ' reject' : '';
-            statusNote = '<div class="admin-note' + noteCls + '">' + escapeHtml(adminDetail.label) + '：' + escapeHtml(adminDetail.value) + '</div>';
-          }
+          var noteCls = frontStatus === 'done' ? ' done' : frontStatus === 'rejected' ? ' reject' : '';
+          statusNote = '<div class="admin-note' + noteCls + '">' + escapeHtml(adminDetail.label) + '：' + escapeHtml(adminDetail.value) + '</div>';
         }
         const voteActions = canVote
           ? `<button class="mini-btn" data-action="vote-request" data-vote="agree" data-index="${index}" ${playerVote ? 'disabled' : ''}>${playerVote === 'agree' ? '已同意' : '同意'}</button>
