@@ -235,4 +235,35 @@ test(
   }
 );
 
+// 活动报名 CTA 横屏触控目标
+test(
+  '横屏触控设备活动报名CTA高度至少44px',
+  function() {
+    if (
+      !/\.signup-cta\s*\{[\s\S]*?min-height\s*:\s*44px\s*;/.test(
+        landscapeTouchCss
+      )
+    ) {
+      throw new Error(
+        '横屏触控 @media (max-height:450px) and (pointer:coarse) 内 .signup-cta 缺少 min-height:44px'
+      );
+    }
+  }
+);
+
+test(
+  '桌面基础CTA样式不应包含min-height:44px（确保修复限定在横屏媒体查询）',
+  function() {
+    // 在基础 .signup-cta 定义（非媒体查询内）查找 min-height
+    // 取第一个非媒体查询内的 .signup-cta 块
+    var baseCta = css.match(/(?:^|(?:\}))[^@]*?\.signup-cta\s*\{[^}]*\}/);
+    // 如果找到基础定义块，确保不含 min-height:44px
+    if (baseCta && baseCta[0].match(/min-height\s*:\s*44px/)) {
+      throw new Error(
+        '基础 .signup-cta 样式不应包含 min-height:44px（修复必须限定在横屏媒体查询）'
+      );
+    }
+  }
+);
+
 runTests();
