@@ -847,6 +847,29 @@ ${renderManagedImageField({
       return reply ? { label: '管理员回复', value: reply } : null;
     }
 
+    // 将后端 snake_case 或前端 camelCase 的建议数据标准化为统一结构。
+    // 返回新对象，不修改入参；images 始终为数组；兼容 admin_reply / reject_reason。
+    // 幂等安全：多次调用结果一致，可放心在多个加载入口重复执行。
+    function normalizeRequestItem(item = {}) {
+      let images = item.images;
+      if (typeof images === 'string') {
+        try {
+          images = JSON.parse(images);
+        } catch (e) {
+          images = [];
+        }
+      }
+      if (!Array.isArray(images)) images = [];
+      return {
+        ...item,
+        text: item.text || item.content || '',
+        adminReply: item.adminReply ?? item.admin_reply ?? '',
+        rejectReason: item.rejectReason ?? item.reject_reason ?? '',
+        contact: item.contact || '',
+        images
+      };
+    }
+
 
     function getCurrentVoterName() {
       return (activePlayerName || localStorage.getItem('erp14-player-name') || '').trim();
@@ -1071,7 +1094,7 @@ ${renderManagedImageField({
         heroImages = mergeArray(heroImages, saved.heroImages);
         serverInfo = mergeObject(serverInfo, saved.serverInfo);
         playItems = mergeArray(playItems, saved.playItems);
-        requests = mergeArray(requests, saved.requests);
+        requests = mergeArray(requests, Array.isArray(saved.requests) ? saved.requests.map(normalizeRequestItem) : saved.requests);
         updates = mergeArray(updates, saved.updates);
         normalizeUpdates();
         siteSections = mergeObject(siteSections, saved.siteSections);
@@ -1674,7 +1697,7 @@ ${renderManagedImageField({
       serverRules = mergeObject(serverRules, config.serverRules);
       buildingTemplates = mergeArray(buildingTemplates, config.buildingTemplates);
       if (Array.isArray(config.requests)) {
-        requests = mergeArray(requests, config.requests);
+        requests = mergeArray(requests, config.requests.map(normalizeRequestItem));
       }
       renderAll();
     }
@@ -1682,7 +1705,7 @@ ${renderManagedImageField({
     // 合并完整配置（含敏感字段），仅在管理员登录后调用。
     function applyFullBackendConfig(config) {
       applyPublicBackendConfig(config);
-      requests = mergeArray(requests, config.requests);
+      requests = mergeArray(requests, Array.isArray(config.requests) ? config.requests.map(normalizeRequestItem) : config.requests);
       playerSessions = mergeArray(playerSessions, config.playerSessions);
       logs = mergeArray(logs, config.logs);
       imageLibrary = mergeArray(imageLibrary, config.imageLibrary);
@@ -1723,9 +1746,13 @@ ${renderManagedImageField({
         if (reqData.status === 'fulfilled') {
           const raw = reqData.value;
           // 兼容分页格式 {items: [...], pagination: {...}} 和旧数组格式
-          merged.requests = Array.isArray(raw) ? raw
+          const requestItems = Array.isArray(raw) ? raw
             : Array.isArray(raw?.items) ? raw.items
             : Array.isArray(raw?.data) ? raw.data
+            : undefined;
+          // 标准化后再交给渲染，避免把未经处理的后端行直接传给 renderRequests
+          merged.requests = Array.isArray(requestItems)
+            ? requestItems.map(normalizeRequestItem)
             : undefined;
         }
 
@@ -1957,7 +1984,7 @@ ${renderManagedImageField({
             : Array.isArray(raw?.data) ? raw.data
             : undefined;
           if (Array.isArray(reqs)) {
-            requests = mergeArray(requests, reqs);
+            requests = mergeArray(requests, reqs.map(normalizeRequestItem));
           }
         }
 
@@ -2589,7 +2616,7 @@ ${renderManagedImageField({
       updateRequestImagePreview();
     }
 
-    function submitRequest(event) {
+    async function submitRequest(event) {
       event.preventDefault();
       const title = document.getElementById('requestTitle').value.trim();
       const text = document.getElementById('requestText').value.trim();
@@ -2613,11 +2640,12 @@ ${renderManagedImageField({
         return;
       }
       document.getElementById('requestSubmitHint').textContent = '';
+      // 内联标准化（与 normalizeRequestItem 等价），避免在沙箱/隔离环境中依赖外部函数引用
       const newRequest = {
         status: 'pending',
         category,
         contact,
-        images: [...pendingRequestImages],
+        images: Array.isArray(pendingRequestImages) ? [...pendingRequestImages] : [],
         title,
         user: activePlayerName || '未登记玩家',
         text,
@@ -2626,26 +2654,47 @@ ${renderManagedImageField({
         adminReply: '',
         rejectReason: ''
       };
-      requests.unshift(newRequest);
+      const payload = {
+        title,
+        content: text,
+        category,
+        user: newRequest.user,
+        contact,
+        images: [...pendingRequestImages]
+      };
       try {
-        addLog('玩家提交建议', `${activePlayerName || '未登记玩家'} 提交了：${title}`, '建议', 'blue');
-        saveLocalData();
-        // 异步推送到后端（不阻塞 UI）
-        fetch(backendUrl('/api/requests'), {
+        // 必须先等待后端成功返回，再写入本地列表，避免制造无真实编号的假成功建议
+        const response = await fetch(backendUrl('/api/requests'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(newRequest)
-        }).catch(() => {});
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          let message = '建议提交失败，请稍后重试';
+          try {
+            const errBody = await response.json();
+            message = errBody.message || errBody.error || message;
+          } catch (e) { /* 保持默认错误信息 */ }
+          throw new Error(message);
+        }
+        const json = await response.json();
+        const data = json.data || json;
+        if (!data || data.id === undefined || data.id === null) {
+          throw new Error('后端未返回建议编号');
+        }
+        newRequest.id = data.id;
+        requests.unshift(newRequest);
+        addLog('玩家提交建议', `${activePlayerName || '未登记玩家'} 提交了：${title}`, '建议', 'blue');
+        saveLocalData();
+        closeRequestModal();
+        renderAll();
+        switchRoute('requests');
+        showToast('建议已提交到后台', 'success');
       } catch (error) {
-        requests.shift();
-        document.getElementById('requestSubmitHint').textContent = '图片数据过大，建议删除部分图片或压缩后再提交';
-        showToast('图片数据过大，建议删除部分图片后再提交', 'info');
-        return;
+        // 失败流程：不写入列表、不关弹窗、不切页、不显示成功、不清空图片、不吞异常
+        document.getElementById('requestSubmitHint').textContent = error.message || '建议提交失败，请稍后重试';
+        showToast(error.message || '建议提交失败，请稍后重试', 'error');
       }
-      closeRequestModal();
-      renderAll();
-      switchRoute('requests');
-      showToast('建议已提交到后台', 'success');
     }
 
     function saveVisibilitySettings() {
@@ -3334,7 +3383,7 @@ ${renderManagedImageField({
       heroImages = mergeArray(heroImages, data.heroImages);
       serverInfo = mergeObject(serverInfo, data.serverInfo);
       playItems = mergeArray(playItems, data.playItems);
-      requests = mergeArray(requests, data.requests);
+      requests = mergeArray(requests, Array.isArray(data.requests) ? data.requests.map(normalizeRequestItem) : data.requests);
       updates = mergeArray(updates, data.updates);
       siteSections = mergeObject(siteSections, data.siteSections);
       normalizeSiteSections();
