@@ -11,6 +11,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { jwtSecret, adminPassword } = require('./config');
 const verifyToken = require('./middleware/authMiddleware');
 const createLogMiddleware = require('./middleware/logMiddleware');
 
@@ -19,10 +20,10 @@ const createLogMiddleware = require('./middleware/logMiddleware');
 // ============================================================
 
 const PORT = Number(process.env.PORT || 3000);
-const JWT_SECRET = process.env.JWT_SECRET || 'erp14-secret-key-2026';
+const JWT_SECRET = jwtSecret;
 const TOKEN_EXPIRY = '7d';              // JWT 有效期 7 天
 const DEFAULT_ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';     // 默认管理员用户名
-const DEFAULT_ADMIN_PASS = process.env.ADMIN_PASSWORD || 'admin123';  // 默认管理员密码
+const DEFAULT_ADMIN_PASS = adminPassword;
 
 const ROOT_DIR = __dirname;
 const DB_PATH = process.env.ERP14_DB_PATH || path.join(ROOT_DIR, 'data', 'erp14.db');

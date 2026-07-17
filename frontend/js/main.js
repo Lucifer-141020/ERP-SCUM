@@ -20,6 +20,9 @@
       chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M9 10h6M9 13h3"/></svg>',
       plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
       lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+      ,gamepad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9h12a4 4 0 0 1 3.8 5.2l-1.1 3.4a2.2 2.2 0 0 1-3.8.7L14.5 16h-5l-2.4 2.3a2.2 2.2 0 0 1-3.8-.7l-1.1-3.4A4 4 0 0 1 6 9z"/><path d="M7 12v4M5 14h4M17 13h.01M19 15h.01"/></svg>',
+      server: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>',
+      globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>'
     };
 
     let heroImages = [
@@ -467,19 +470,19 @@ ${renderManagedImageField({
         const signupUpdates = updates.map((item, i) => ({ item, i })).filter(({ item }) => inferActivityType(item) === 'signup');
         const fixedUpdates = updates.map((item, i) => ({ item, i })).filter(({ item }) => inferActivityType(item) === 'fixed');
         return `
-        <div class="panel-title"><h3>每周活动管理</h3><p>编辑每周活动公告和活动卡片，保存后前台立即更新。</p></div>
-        <details class="editor-section" open>
-          <summary style="background:color-mix(in srgb, var(--amber) 12%, var(--surface));color:var(--amber);border-left:3px solid var(--amber);padding-left:11px">临时报名活动（${signupUpdates.length} 个）</summary>
-          <div class="editor-section-body">
-            <div class="panel-save-bar" style="position:static;margin-bottom:12px"><button class="btn btn-secondary" data-action="add-update" data-type="signup">新增临时报名活动</button></div>
-            <div class="update-list">${signupUpdates.map(({ item, i }) => renderUpdateEditor(item, i)).join('') || '<div class="card pad">暂无临时报名活动。</div>'}</div>
-          </div>
-        </details>
+        <div class="panel-title"><h3>长期 / 限时活动</h3><p>编辑长期固定活动和限时报名活动，保存后前台立即更新。</p></div>
         <details class="editor-section" open>
           <summary style="background:color-mix(in srgb, var(--primary) 12%, var(--surface));color:var(--primary-strong);border-left:3px solid var(--primary);padding-left:11px">长期固定活动（${fixedUpdates.length} 个）</summary>
           <div class="editor-section-body">
             <div class="panel-save-bar" style="position:static;margin-bottom:12px"><button class="btn btn-secondary" data-action="add-update" data-type="fixed">新增长期固定活动</button></div>
             <div class="update-list">${fixedUpdates.map(({ item, i }) => renderUpdateEditor(item, i)).join('') || '<div class="card pad">暂无长期固定活动。</div>'}</div>
+          </div>
+        </details>
+        <details class="editor-section" open>
+          <summary style="background:color-mix(in srgb, var(--amber) 12%, var(--surface));color:var(--amber);border-left:3px solid var(--amber);padding-left:11px">限时报名活动（${signupUpdates.length} 个）</summary>
+          <div class="editor-section-body">
+            <div class="panel-save-bar" style="position:static;margin-bottom:12px"><button class="btn btn-secondary" data-action="add-update" data-type="signup">新增限时报名活动</button></div>
+            <div class="update-list">${signupUpdates.map(({ item, i }) => renderUpdateEditor(item, i)).join('') || '<div class="card pad">暂无限时报名活动。</div>'}</div>
           </div>
         </details>`; },
       imageLibrary: () => renderImageLibraryPanel(),
@@ -1628,6 +1631,20 @@ ${renderManagedImageField({
       return 'fixed';
     }
 
+    function mapEventsToUpdates(events) {
+      return Array.isArray(events) ? events.map(item => ({
+        ...item,
+        id: item.id,
+        activityType: item.activityType || item.type || 'fixed',
+        text: item.text || item.content || '',
+        rules: item.rules || item.content || '',
+        signupDeadline: item.signupDeadline || item.signup_deadline || null,
+        eventEndAt: item.eventEndAt || item.event_end_at || null,
+        published: item.published !== false,
+        signupEnabled: item.signupEnabled ?? item.signup_enabled ?? (item.type === 'signup')
+      })) : [];
+    }
+
     function normalizeUpdates() {
       updates = updates.map((item, index) => {
         const text = `${item.version || ''} ${item.status || ''} ${item.title || ''}`;
@@ -1693,15 +1710,7 @@ ${renderManagedImageField({
         });
       }
       playItems = mergeArray(playItems, config.playItems);
-      if (Array.isArray(config.updates)) {
-        config.updates.forEach((backendItem, i) => {
-          if (i < updates.length) {
-            updates[i] = { ...backendItem, status: updates[i].status || backendItem.status };
-          } else {
-            updates.push(backendItem);
-          }
-        });
-      }
+      // 活动列表不再从旧 site-config.json 的 updates 合并，统一以活动接口为权威来源。
       normalizeUpdates();
       siteSections = mergeObject(siteSections, config.siteSections);
       normalizeSiteSections();
@@ -1738,9 +1747,10 @@ ${renderManagedImageField({
       applyFullBackendConfig(config);
     }
 
-    // 未登录访客：并行请求各模块
+    // 未登录访客：并行请求各模块；仅在 !adminToken 时使用公开活动源，避免管理员并发覆盖。
     async function loadPublicBackendConfig() {
       try {
+        const publicMode = !adminToken;
         const [cfg, heroData, playsData, evtsData, reqData] = await Promise.allSettled([
           fetchWithFallback(PUBLIC_CONFIG_URL),
           fetchWithFallback(HERO_URL),
@@ -1759,7 +1769,10 @@ ${renderManagedImageField({
 
         if (heroData.status === 'fulfilled') merged.heroImages = heroData.value.data || heroData.value;
         if (playsData.status === 'fulfilled') merged.playItems = playsData.value.data || playsData.value;
-        if (evtsData.status === 'fulfilled') merged.updates = evtsData.value;
+        if (evtsData.status === 'fulfilled') {
+          const rawEvents = evtsData.value?.data || evtsData.value;
+          if (Array.isArray(rawEvents)) merged.updates = mapEventsToUpdates(rawEvents);
+        }
         // API 返回 {code: 200, data: [...], message: "success"}，需要取 .data
         if (reqData.status === 'fulfilled') {
           const raw = reqData.value;
@@ -1784,7 +1797,7 @@ ${renderManagedImageField({
     // 加载统计数据
     async function loadStats() {
       try {
-        const response = await fetch('/api/admin/stats', {
+        const response = await fetch(backendUrl('/api/admin/stats'), {
           headers: { 'Authorization': `Bearer ${adminToken}` }
         });
         if (!response.ok) throw new Error('Failed to load stats');
@@ -1817,7 +1830,7 @@ ${renderManagedImageField({
       const action = document.getElementById('logAction')?.value || '';
       const adminName = document.getElementById('logAdminName')?.value?.trim() || '';
 
-      let url = `/api/admin/logs?page=${page}&limit=${LOG_LIMIT}`;
+      let url = `${backendUrl('/api/admin/logs')}?page=${page}&limit=${LOG_LIMIT}`;
       if (startDate) url += `&startDate=${startDate}`;
       if (endDate) url += `&endDate=${endDate}`;
       if (action) url += `&action=${encodeURIComponent(action)}`;
@@ -1975,12 +1988,16 @@ ${renderManagedImageField({
       if (!adminToken) return;
       try {
         // 并行拉取配置和 requests
-        const [cfgResp, reqResp] = await Promise.allSettled([
+        const [cfgResp, reqResp, eventsResp] = await Promise.allSettled([
           fetchJson(backendUrl('/api/admin/config'), {
             cache: 'no-store',
             headers: { authorization: `Bearer ${adminToken}` }
           }),
           fetchJson(backendUrl('/api/admin/requests'), {
+            cache: 'no-store',
+            headers: { authorization: `Bearer ${adminToken}` }
+          }),
+          fetchJson(backendUrl('/api/admin/events'), {
             cache: 'no-store',
             headers: { authorization: `Bearer ${adminToken}` }
           }),
@@ -2003,6 +2020,15 @@ ${renderManagedImageField({
             : undefined;
           if (Array.isArray(reqs)) {
             requests = mergeArray(requests, reqs.map(normalizeRequestItem));
+          }
+        }
+
+        if (eventsResp.status === 'fulfilled') {
+          const rawEvents = eventsResp.value?.data || eventsResp.value;
+          if (Array.isArray(rawEvents)) {
+            updates = mapEventsToUpdates(rawEvents);
+            normalizeUpdates();
+            renderAll();
           }
         }
 
@@ -2890,7 +2916,7 @@ ${renderManagedImageField({
       try {
         let items, total, totalSize;
         if (adminToken) {
-          const response = await fetch('/api/admin/images', {
+          const response = await fetch(backendUrl('/api/admin/images'), {
             headers: { 'Authorization': `Bearer ${adminToken}` }
           });
           if (!response.ok) throw new Error('Failed to load images');
@@ -3151,7 +3177,7 @@ ${renderManagedImageField({
 
           confirmAction('导入数据 — 覆盖确认', confirmMsg, async () => {
             try {
-              const response = await fetch('/api/admin/import', {
+          const response = await fetch(backendUrl('/api/admin/import'), {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${adminToken}`,
@@ -3716,10 +3742,36 @@ ${item.text}`);
       if (action === 'delete-update') {
         const ok = await confirmAction('删除活动', '确定要删除这个活动吗？');
         if (!ok) return;
+        const item = updates[index];
+        if (!item) return;
+        const idNum = Number(item.id);
+        const isSaved = Number.isInteger(idNum) && idNum > 0;
+        if (isSaved) {
+          try {
+            const response = await fetch(backendUrl(`/api/admin/events/${idNum}`), {
+              method: 'DELETE',
+              headers: { authorization: `Bearer ${adminToken}` }
+            });
+            if (!response.ok) {
+              let msg = '删除请求失败';
+              try { const body = await response.json(); msg = body.message || body.error || msg; } catch (_) {}
+              showToast(msg, 'error');
+              return;
+            }
+            await loadFullBackendConfig();
+            addLog('活动已删除', item.title, '活动', 'red');
+            showToast('活动已删除', 'success');
+            renderPanel('updateManage');
+          } catch (error) {
+            showToast('删除请求失败，请确认后端已启动', 'error');
+          }
+          return;
+        }
         const [removed] = updates.splice(index, 1);
         addLog('活动已删除', removed.title, '活动', 'red');
         saveLocalData();
         renderAll();
+        renderPanel('updateManage');
       }
     }
 
@@ -4194,6 +4246,37 @@ ${item.text}`);
     document.getElementById('menuBtn').innerHTML = icons.menu;
     document.getElementById('menuBtn').addEventListener('click', () => document.getElementById('nav').classList.toggle('open'));
     document.getElementById('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+    const privateQqModal = document.getElementById('privateQqModal');
+    const closePrivateQq = document.getElementById('closePrivateQq');
+    function openPrivateQq() {
+      privateQqModal.classList.add('show');
+      privateQqModal.removeAttribute('hidden');
+      closePrivateQq.focus();
+    }
+    function closePrivateQqModal() {
+      privateQqModal.classList.remove('show');
+      privateQqModal.setAttribute('hidden', '');
+    }
+    document.querySelectorAll('.private-qq-trigger').forEach(privateQqLink => {
+      privateQqLink.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openPrivateQq();
+      });
+      privateQqLink.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openPrivateQq();
+        }
+      });
+    });
+    closePrivateQq.addEventListener('click', closePrivateQqModal);
+    privateQqModal.addEventListener('click', event => {
+      if (event.target === privateQqModal) closePrivateQqModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && privateQqModal.classList.contains('show')) closePrivateQqModal();
+    });
     document.querySelectorAll('[data-route]').forEach(el => {
       el.addEventListener('click', event => {
         if (el.dataset.route) {

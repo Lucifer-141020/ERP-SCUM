@@ -1,10 +1,20 @@
 {
-  "name": "scum-site-backend",
-  "version": "0.1.0",
-  "private": true,
-  "type": "commonjs",
-  "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
-  }
+    "name":  "erp14-api-server",
+    "version":  "2.0.0",
+    "description":  "ERP14 SCUM Server RESTful API (Express + SQLite)",
+    "main":  "server.js",
+    "scripts":  {
+                    "start":  "node server.js",
+                    "init-db":  "node scripts/init-db.js",
+                    "test":  "node --test"
+                },
+    "dependencies":  {
+                         "bcryptjs":  "^2.4.3",
+                         "better-sqlite3":  "^11.0.0",
+                         "cors":  "^2.8.5",
+                         "express":  "^4.21.0",
+                         "jsonwebtoken":  "^9.0.2",
+                         "multer":  "^1.4.5-lts.1",
+                         "sql.js":  "^1.14.1"
+                     }
 }

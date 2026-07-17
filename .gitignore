@@ -1,6 +1,11 @@
 # Runtime data
 backend/data/
 backend/uploads/
+backend/db/migration_report.json
+uploads/
+*.db
+*.sqlite
+*.sqlite3
 
 # Secrets and local environment
 .env
@@ -12,9 +17,22 @@ backend/.env
 npm-debug.log*
 
 # Local backup and generated files
+backups/
 备份/
+发布区/
+dist/
+node_modules/
+.workbuddy/
+验收截图/
+*.tar.gz
+*.zip
+backend/server.js.backup-*
+backend/server-express.js
+scripts/_*.js
+scripts/migrate_*.py
 *.backup-*.html
 *.before-restore-*.html
+/*验收截图-*.png
 
 # Temporary verification/update scripts
 verify_*.js

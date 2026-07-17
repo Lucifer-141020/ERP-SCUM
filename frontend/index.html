@@ -10,10 +10,12 @@
   <header class="topbar">
     <button class="menu-btn" id="menuBtn" title="菜单" aria-label="菜单"></button>
     <a class="brand" href="#home" data-route="home">
-      <span class="brand-mark">14</span>
+      <span class="brand-mark brand-avatar private-qq-trigger" id="privateQqLink" role="button" tabindex="0" title="搭建请添加二胖私人QQ" aria-label="搭建请添加二胖私人QQ">
+        <img src="./assets/private-qq-avatar.png" alt="总裁头像" />
+      </span>
       <span>
         <strong>Erp 14</strong>
-        <span>SCUM 生存服务器</span>
+        <span>搭建请添加二胖私人QQ</span>
       </span>
     </a>
     <nav class="nav" id="nav">
@@ -272,7 +274,19 @@
     </div>
   </div>
 
-  <footer>© 2026 Erp 14. SCUM server showcase. 静态展示版。</footer>
+  <footer class="site-footer">
+    <div class="site-footer-brand">
+      <button class="footer-logo private-qq-trigger" type="button" title="搭建请添加二胖私人QQ" aria-label="搭建请添加二胖私人QQ">
+        <img src="./assets/private-qq-avatar.png" alt="总裁头像" />
+      </button>
+      <div>
+        <strong>专业游戏网页专区</strong>
+        <span>帮助一切服主搭建服务器 · 部署机器人 · 网页商城</span>
+        <span>搭建请添加二胖私人QQ</span>
+      </div>
+    </div>
+    <div class="site-footer-meta">© 2026 Erp 14 · SCUM server showcase · 静态展示版</div>
+  </footer>
   <div class="toast" id="toast">
     <span class="toast-icon" id="toastIcon">ℹ️</span>
     <span class="toast-message" id="toastMessage">操作已提交</span>
@@ -330,13 +344,30 @@
       <div class="image-viewer-count" id="imageViewerCount"></div>
     </div>
   </div>
+  <div class="modal-backdrop" id="privateQqModal" aria-modal="true" role="dialog" hidden>
+    <div class="modal-card private-qq-card">
+      <div class="modal-topline">
+        <div>
+          <h2>搭建请添加二胖私人QQ</h2>
+          <p>扫描二维码添加好友，QQ：403751463</p>
+        </div>
+        <button class="modal-close" type="button" id="closePrivateQq" aria-label="关闭">×</button>
+      </div>
+      <img class="private-qq-qr" src="./assets/private-qq-qr.png" alt="QQ 403751463 加好友二维码" />
+      <p class="private-qq-hint">点击左上角头像可再次打开此二维码。</p>
+    </div>
+  </div>
   <div class="modal-backdrop" id="playerGate" aria-modal="true" role="dialog" hidden>
     <form class="modal-card" id="playerGateForm">
       <div>
-        <h2>填写游戏内名称</h2>
-        <p>进入 Erp 14 网页前建议登记你的 SCUM 游戏内名称，后台会显示已进入网页的玩家。报名活动时必须填写名称。</p>
+        <h2>欢迎进入SCUM游戏玩家专区</h2>
+        <p class="player-gate-services">
+          <span><span class="player-gate-service-icon" data-icon="gamepad"></span>专业游戏网页专区</span>
+          <span><span class="player-gate-service-icon" data-icon="server"></span>帮助一切服主搭建服务器-部署机器人网页商城</span>
+          <span><span class="player-gate-service-icon" data-icon="globe"></span>开发专属网页</span>
+        </p>
       </div>
-      <label>游戏内名称
+        <label>请填写游戏内名称
         <input id="playerGameName" minlength="2" maxlength="24" autocomplete="nickname" placeholder="例如：Erp14_Player" />
       </label>
       <div class="player-gate-actions">
